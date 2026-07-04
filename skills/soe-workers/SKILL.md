@@ -109,6 +109,9 @@ complements the context firewall and keeps the worker token-frugal.
 4. **Await the return.**
 5. Call `parse(return)` from `lib/firewall-return.js`. On reject → retry the
    worker. On accept → proceed.
+   - **Ordering (load-bearing):** call `parse()` to validate the return BEFORE
+     removing the worker's worktree/scratch dir — the returned `path` must still
+     exist on disk at validation time, or an honest worker is wrongly rejected.
 6. Under `withWriterLock` (via `lib/state.js`), record completion in
    `state.json`. This is serial and single-writer.
 

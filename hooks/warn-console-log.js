@@ -8,7 +8,7 @@
  */
 
 const fs = require('fs');
-const { readStdinJson, log } = require('../lib/utils');
+const { readStdinJson, log } = require('./lib/utils');
 
 async function main() {
   const toolUse = await readStdinJson();

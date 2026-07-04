@@ -67,13 +67,16 @@ Read the goal from `$ARGUMENTS`.
 The track id is the **kebab-slug of the goal** (lowercased, non-alphanumerics
 collapsed to `-`, trimmed). List existing tracks and reuse a clearly-matching
 one; otherwise create a new track and seed its INITIAL `state.json` through the
-engine's state library. Use `process.env.CLAUDE_PLUGIN_ROOT` for the lib import
-(never a relative `./lib`), and write only the initial record under the writer
-lock — the orchestrator owns every write thereafter:
+engine's state library. Resolve the plugin root with a fallback for the lib
+import (never a relative `./lib`) — `CLAUDE_PLUGIN_ROOT` can be unset (e.g. a
+bare subagent) — and write only the initial record under the writer lock — the
+orchestrator owns every write thereafter:
 
 ```bash
-node -e '
-  const ROOT = process.env.CLAUDE_PLUGIN_ROOT;
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/soe/*/ 2>/dev/null | sort -V | tail -1)}"
+ROOT="${ROOT:-$HOME/.claude/plugins/soe}"   # manual-install fallback
+SOE_ROOT="$ROOT" node -e '
+  const ROOT = process.env.SOE_ROOT;
   import(`${ROOT}/lib/state.js`).then(async (S) => {
     const goal = process.argv[1];
     const id = goal.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
@@ -107,8 +110,10 @@ brainstorm:
    orchestrator* (PLAN). Verify existence:
 
    ```bash
-   node -e '
-     const ROOT = process.env.CLAUDE_PLUGIN_ROOT;
+   ROOT="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/soe/*/ 2>/dev/null | sort -V | tail -1)}"
+   ROOT="${ROOT:-$HOME/.claude/plugins/soe}"   # manual-install fallback
+   SOE_ROOT="$ROOT" node -e '
+     const ROOT = process.env.SOE_ROOT;
      import(`${ROOT}/lib/state.js`).then(async (S) => {
        const fs = await import("node:fs");
        const dir = process.argv[1];
@@ -142,8 +147,10 @@ the writer lock (merge into the existing state; do not clobber `tasks` or
 `loop_state`):
 
 ```bash
-node -e '
-  const ROOT = process.env.CLAUDE_PLUGIN_ROOT;
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/soe/*/ 2>/dev/null | sort -V | tail -1)}"
+ROOT="${ROOT:-$HOME/.claude/plugins/soe}"   # manual-install fallback
+SOE_ROOT="$ROOT" node -e '
+  const ROOT = process.env.SOE_ROOT;
   import(`${ROOT}/lib/state.js`).then(async (S) => {
     const [dir, docPath] = process.argv.slice(1);
     await S.withWriterLock(dir, () => {
@@ -182,8 +189,10 @@ With no goal, resume the most relevant in-flight track instead of creating one:
 2. Compute its next action via the resume library:
 
    ```bash
-   node -e '
-     const ROOT = process.env.CLAUDE_PLUGIN_ROOT;
+   ROOT="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/soe/*/ 2>/dev/null | sort -V | tail -1)}"
+   ROOT="${ROOT:-$HOME/.claude/plugins/soe}"   # manual-install fallback
+   SOE_ROOT="$ROOT" node -e '
+     const ROOT = process.env.SOE_ROOT;
      import(`${ROOT}/lib/resume.js`).then((R) => {
        const dir = process.argv[1];
        console.log(JSON.stringify(R.resumeFromDir(dir)));

@@ -21,7 +21,7 @@ const {
   countInFile,
   findFiles,
   log
-} = require('../lib/utils');
+} = require('./lib/utils');
 
 async function main() {
   // Get script directory to find config

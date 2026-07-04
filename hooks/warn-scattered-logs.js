@@ -8,7 +8,7 @@
  */
 
 const fs = require('fs');
-const { readStdinJson, log } = require('../lib/utils');
+const { readStdinJson, log } = require('./lib/utils');
 
 const PATTERNS = [
   // JS/TS

@@ -81,6 +81,23 @@ If `.soe/config.json` is absent, use the built-in defaults
 
 ---
 
+## Resolving the plugin root
+
+The engine libraries are imported from `$ROOT/lib/…`. `CLAUDE_PLUGIN_ROOT` is
+normally set, but it can be **unset** — e.g. a bare subagent invoked without the
+plugin env. Before any `node -e` lib import, resolve the root with a fallback so
+the import never breaks:
+
+```bash
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/soe/*/ 2>/dev/null | sort -V | tail -1)}"
+ROOT="${ROOT:-$HOME/.claude/plugins/soe}"   # manual-install fallback
+```
+
+Then import from `"$ROOT/lib/…"`. The same `${CLAUDE_PLUGIN_ROOT:-<fallback>}`
+form is used in the `/soe:go*` and `/soe:setup` command snippets.
+
+---
+
 ## STEP 1: Resume — never restart blindly
 
 On every start, compute where to resume from the **single authoritative state**

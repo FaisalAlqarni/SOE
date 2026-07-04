@@ -21,9 +21,9 @@ const {
   ensureDir,
   readFile,
   log
-} = require('../lib/utils');
-const { getPackageManager, getSelectionPrompt } = require('../lib/package-manager');
-const { listAliases } = require('../lib/session-aliases');
+} = require('./lib/utils');
+const { getPackageManager, getSelectionPrompt } = require('./lib/package-manager');
+const { listAliases } = require('./lib/session-aliases');
 
 /**
  * Initialize the homunculus directory structure.

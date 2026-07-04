@@ -15,11 +15,16 @@ user project. It is safe to re-run: idempotent and resumable.
 Run the real, tested scaffolder (do NOT hand-create these files):
 
 ```bash
-node -e "import('${CLAUDE_PLUGIN_ROOT}/lib/setup.js').then(m => { const r = m.runSetup(process.cwd(), { model: process.env.SOE_SESSION_MODEL }); console.log(JSON.stringify(r, null, 2)); })"
+# Resolve the plugin root with a fallback — CLAUDE_PLUGIN_ROOT can be unset
+# (e.g. a bare subagent). See "Resolving the plugin root".
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/soe/*/ 2>/dev/null | sort -V | tail -1)}"
+ROOT="${ROOT:-$HOME/.claude/plugins/soe}"   # manual-install fallback
+node -e "import('${ROOT}/lib/setup.js').then(m => { const r = m.runSetup(process.cwd(), { model: process.env.SOE_SESSION_MODEL }); console.log(JSON.stringify(r, null, 2)); })"
 ```
 
-If `CLAUDE_PLUGIN_ROOT` is unset (manual install), use the plugin path, e.g.
-`~/.claude/plugins/soe/lib/setup.js`.
+`CLAUDE_PLUGIN_ROOT` is normally set; the two lines above fall back to the
+installed plugin cache (or the manual-install path `~/.claude/plugins/soe`) when
+it is unset, so the import never breaks.
 
 This scaffolds, in the project root:
 

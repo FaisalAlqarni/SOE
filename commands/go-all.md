@@ -50,13 +50,15 @@ Parse type and key nouns.
 ### 2. Resolve / create the track
 
 Track id = **kebab-slug of the goal**. Reuse a clearly-matching track or create
-one, seeding the initial `state.json` via the state library. Use
-`process.env.CLAUDE_PLUGIN_ROOT` for the lib import; write only the initial
-record under the writer lock:
+one, seeding the initial `state.json` via the state library. Resolve the plugin
+root with a fallback for the lib import — `CLAUDE_PLUGIN_ROOT` can be unset (e.g.
+a bare subagent); write only the initial record under the writer lock:
 
 ```bash
-node -e '
-  const ROOT = process.env.CLAUDE_PLUGIN_ROOT;
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/soe/*/ 2>/dev/null | sort -V | tail -1)}"
+ROOT="${ROOT:-$HOME/.claude/plugins/soe}"   # manual-install fallback
+SOE_ROOT="$ROOT" node -e '
+  const ROOT = process.env.SOE_ROOT;
   import(`${ROOT}/lib/state.js`).then(async (S) => {
     const goal = process.argv[1];
     const id = goal.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
@@ -147,8 +149,10 @@ into `state.json` via `lib/state.js`, under the writer lock (merge; do not
 clobber `tasks`/`loop_state`):
 
 ```bash
-node -e '
-  const ROOT = process.env.CLAUDE_PLUGIN_ROOT;
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/soe/*/ 2>/dev/null | sort -V | tail -1)}"
+ROOT="${ROOT:-$HOME/.claude/plugins/soe}"   # manual-install fallback
+SOE_ROOT="$ROOT" node -e '
+  const ROOT = process.env.SOE_ROOT;
   import(`${ROOT}/lib/state.js`).then(async (S) => {
     const [dir, docPath] = process.argv.slice(1);
     await S.withWriterLock(dir, () => {

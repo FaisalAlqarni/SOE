@@ -14,7 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { readStdinJson, log } = require('../lib/utils');
+const { readStdinJson, log } = require('./lib/utils');
 
 const BIOME_CONFIGS = ['biome.json', 'biome.jsonc'];
 

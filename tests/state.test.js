@@ -11,6 +11,8 @@ import {
   readState,
   withWriterLock,
   markTaskComplete,
+  updateState,
+  advanceStep,
   setLockTtlMs,
   STATE_FILE,
   TMP_FILE,
@@ -250,6 +252,130 @@ test('(e) markTaskComplete initializes tasks to [] when absent, then appends', a
   assert.deepEqual(s.tasks.map((tk) => tk.id), ['ONLY']);
   assert.equal(s.tasks[0].status, 'completed');
   assert.equal(s.tasks[0].commitSha, 'cafe');
+});
+
+// --- (g) updateState: the atomic multi-field transaction primitive ------------
+//
+// updateState(dir, mutator) runs under withWriterLock: it reads the current
+// state (or {} if absent), calls mutator(state) which mutates in place, writes
+// the result, and returns the new state. This is the single primitive that lets
+// an orchestrator do MULTIPLE field changes in ONE atomic locked write.
+
+test('(g) updateState applies the mutator and round-trips through readState', async (t) => {
+  const dir = mkdir(t);
+  writeState(dir, { version: 1, count: 0 });
+
+  const result = await updateState(dir, (s) => {
+    s.count = 42;
+    s.added = 'yes';
+  });
+
+  assert.equal(result.count, 42, 'returned state reflects the mutation');
+  assert.equal(result.added, 'yes');
+  const persisted = readState(dir);
+  assert.deepEqual(persisted, { version: 1, count: 42, added: 'yes' });
+});
+
+test('(g) updateState starts from {} when no state is committed', async (t) => {
+  const dir = mkdir(t);
+  const result = await updateState(dir, (s) => { s.fresh = true; });
+  assert.deepEqual(result, { fresh: true });
+  assert.deepEqual(readState(dir), { fresh: true });
+});
+
+// --- (h) advanceStep: set current_step + step_status, preserve loop_state -----
+
+test('(h) advanceStep sets current_step + step_status, preserving other loop_state fields', async (t) => {
+  const dir = mkdir(t);
+  writeState(dir, {
+    loop_state: {
+      current_step: 'PLAN',
+      step_status: 'IN_PROGRESS',
+      fix_cycle_count: 3,
+      plan_revision_count: 2,
+    },
+  });
+
+  const result = await advanceStep(dir, 'EXECUTE', 'NOT_STARTED');
+
+  assert.equal(result.loop_state.current_step, 'EXECUTE');
+  assert.equal(result.loop_state.step_status, 'NOT_STARTED');
+  // Pre-existing sibling fields must be preserved, not clobbered.
+  assert.equal(result.loop_state.fix_cycle_count, 3, 'fix_cycle_count preserved');
+  assert.equal(result.loop_state.plan_revision_count, 2, 'plan_revision_count preserved');
+  assert.deepEqual(readState(dir).loop_state, {
+    current_step: 'EXECUTE',
+    step_status: 'NOT_STARTED',
+    fix_cycle_count: 3,
+    plan_revision_count: 2,
+  });
+});
+
+test('(h) advanceStep defaults step_status to NOT_STARTED and creates loop_state if absent', async (t) => {
+  const dir = mkdir(t);
+  writeState(dir, { version: 1 });
+
+  const result = await advanceStep(dir, 'PLAN');
+
+  assert.equal(result.loop_state.current_step, 'PLAN');
+  assert.equal(result.loop_state.step_status, 'NOT_STARTED');
+  assert.equal(result.version, 1, 'unrelated fields preserved');
+});
+
+// --- (i) lock serialization: overlapping updateState/advanceStep serialize -----
+
+test('(i) a second updateState/advanceStep while the first holds the lock fails', async (t) => {
+  const dir = mkdir(t);
+  writeState(dir, { loop_state: { current_step: 'PLAN' } });
+
+  let innerFailed = false;
+  await updateState(dir, async (s) => {
+    s.touched = true;
+    // While the outer updateState holds the writer lock, a concurrent
+    // advanceStep must NOT be able to acquire it.
+    await assert.rejects(
+      () => advanceStep(dir, 'EXECUTE'),
+      /lock held|locked|EEXIST/i,
+      'concurrent advanceStep must reject while lock is held',
+    );
+    innerFailed = true;
+  });
+
+  assert.ok(innerFailed, 'inner acquire was rejected as expected');
+  assert.ok(!fs.existsSync(path.join(dir, LOCK_FILE)), 'lock released in finally');
+});
+
+// --- (j) atomic combined transaction: complete a task AND advance in one write -
+
+test('(j) a single updateState marks a task complete AND advances the step in one atomic write', async (t) => {
+  const dir = mkdir(t);
+  writeState(dir, {
+    loop_state: { current_step: 'EXECUTE', step_status: 'IN_PROGRESS', fix_cycle_count: 1 },
+    tasks: [
+      { id: 'T1', status: 'in_progress' },
+      { id: 'T2', status: 'pending' },
+    ],
+  });
+
+  const result = await updateState(dir, (s) => {
+    // Mark T1 complete...
+    const t1 = s.tasks.find((tk) => tk.id === 'T1');
+    t1.status = 'completed';
+    t1.commitSha = 'abc1234';
+    // ...AND advance the phase — both in ONE locked transaction.
+    s.loop_state.current_step = 'EVALUATE';
+    s.loop_state.step_status = 'NOT_STARTED';
+  });
+
+  // Both mutations landed in a single committed write.
+  const persisted = readState(dir);
+  assert.deepEqual(result, persisted, 'returned state === persisted state');
+  const t1 = persisted.tasks.find((tk) => tk.id === 'T1');
+  assert.equal(t1.status, 'completed', 'task marked complete');
+  assert.equal(t1.commitSha, 'abc1234');
+  assert.equal(persisted.loop_state.current_step, 'EVALUATE', 'step advanced');
+  assert.equal(persisted.loop_state.step_status, 'NOT_STARTED');
+  assert.equal(persisted.loop_state.fix_cycle_count, 1, 'other loop_state fields preserved');
 });
 
 // --- (f) Cross-module integration: state.js ↔ resume.js -----------------------

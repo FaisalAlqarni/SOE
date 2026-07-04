@@ -6,7 +6,7 @@
  * Logs the PR URL and a review command to stderr for easy access.
  */
 
-const { readStdinJson, log } = require('../lib/utils');
+const { readStdinJson, log } = require('./lib/utils');
 
 async function main() {
   const toolUse = await readStdinJson();
