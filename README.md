@@ -12,7 +12,21 @@
 - a **simplified, *tested* multi-agent orchestration engine** — the *Evaluate-Loop*, adapted from Conductor (parallel workers, Board of Directors, quality gates, bounded loops) with every integrity-critical decision as **real code, not prose in a prompt**,
 - and the **best of Everything Claude Code** (instincts, logging, self-audit) — plus **session-model-led multi-model orchestration**, **token-efficient cross-plugin discovery**, and a **minimal-code** discipline.
 
-> **41 skills · 22 agents · 16 commands · 13 tested `lib/` modules · ~265 passing tests.**
+> **45 skills · 22 agents · 16 commands · 15 tested `lib/` modules · 340 passing tests.**
+
+## Features
+
+- **One engine, three front doors** — `/go` (human brainstorm), `/go-auto` (autonomous spec), `/go-all` (dual derivation + reconciliation) all feed one autonomous **Evaluate-Loop**.
+- **Real multi-agent orchestration** — the session model *is* the orchestrator; it dispatches tier-pinned leaf agents (planner, board, workers, evaluator, fixer) **asynchronously** and collects each **native completion** (no polling), applying results serially as the sole state writer.
+- **Session-model-led multi-model tiering** — agents pinned to latest **full model IDs** (`claude-opus-4-8` reasoning · `claude-sonnet-5` mechanical · `claude-fable-5` top-stakes · `claude-haiku-4-5` cheap), with a **config Fable gate** (`fable_enabled:false` → falls back to Opus).
+- **Board of Directors + devil's-advocate** — a cheap collapsed 5-lens board by default, a full 5-director vote for high-stakes, and an adversarial red-team gate before any plan executes.
+- **Guarantees in code, not prompts** — 15 tested `lib/` modules: atomic single-writer state, crash-safe idempotent resume, bounded fix/plan loops, a deterministic **risk matrix + fail-safe scrutiny** (only ever *raises*), a **context-firewall** validator, and the model resolver.
+- **Context firewall** — delegated agents return only `path + 3-line summary + confidence`; full output stays out of the orchestrator's context.
+- **Worktree-isolated workers, mandatory TDD** — parallel workers can't trample; every change is RED → GREEN → REFACTOR.
+- **Token-frugal by design** — lean core (language depth from installed packs), collapsed-vs-full board by stakes, and an always-on **minimal-code** discipline (shortest working diff; code only).
+- **Cross-plugin capability discovery** — auto-detects and reuses installed skills / agents / MCP servers (graphify, chrome-devtools, Codex, Figma) by role, degrading gracefully when absent.
+- **Escalation that learns** — escalates only genuine judgment calls or irreversible actions, and learns from each so routine interruptions fade.
+- **Ambient, no ceremony** — `/simplify`, `/critique`, `/self-audit`, `/logging` and the discipline skills all work standalone.
 
 ## What This Project Provides
 
@@ -106,23 +120,99 @@ soe auto-detects and uses these if installed, and degrades gracefully if not:
 - **OpenAI Codex plugin** — a different-perspective peer for high-stakes parallel synthesis.
 - **ECC / `soe-extras`** — language-depth packs; their specialist reviewers are preferred by role, with soe-core generics as fallback.
 
-## The Evaluate-Loop
+## Architecture
 
-```
-/go <goal>
-  └─ (brainstorm w/ human → bound design doc) ──► the autonomous loop:
+### High level — how a goal becomes verified code
 
-     PLAN ─► EVALUATE_PLAN ─► EXECUTE ─► EVALUATE_EXEC ─► COMPLETE
-              │(Board + devil's-advocate)  (parallel workers)  │(quality gates)
-              └ fail ─► revise (max 3)                          └ fail ─► FIX (max 5) ─┐
-                                                                    ▲──────────────────┘
+```mermaid
+flowchart TD
+    U(["User states a goal"]) --> ENTRY{"Entry command"}
+    ENTRY -->|"/go"| BR["Human brainstorm<br/>→ design doc"]
+    ENTRY -->|"/go-auto"| AUTO["Autonomous spec<br/>goal + codebase"]
+    ENTRY -->|"/go-all"| DUAL["Brainstorm ∥ auto-spec<br/>→ 3-way reconcile"]
+    BR --> BIND["Bind design doc<br/>to track"]
+    AUTO --> BIND
+    DUAL --> BIND
+    BIND --> PLAN
+
+    subgraph LOOP["Evaluate-Loop — crash-safe · bounded"]
+        direction TB
+        PLAN["PLAN<br/>loop-planner"] --> EP{"EVALUATE_PLAN<br/>Board + devil's-advocate"}
+        EP -->|"revise (≤3)"| PLAN
+        EP -->|"approve"| EX["EXECUTE<br/>workers · TDD · worktrees"]
+        EX --> EE{"EVALUATE_EXEC<br/>quality gates"}
+        EE -->|"fail → FIX (≤5)"| FXR["loop-fixer"]
+        FXR --> EE
+        EE -->|"pass"| DONE(["COMPLETE"])
+    end
 ```
+
+### Low level — components & dispatch
+
+The **main session is the orchestrator**: it dispatches tier-pinned leaf agents asynchronously, collects each **native completion** (never a poll), validates every return through the **context firewall**, and is the **sole writer** of `state.json`. Integrity-critical decisions live in tested `lib/` code.
+
+```mermaid
+flowchart TB
+    subgraph MAIN["Main session = Orchestrator (session model)"]
+        ORCH["soe-orchestrator<br/>sole writer of state.json"]
+    end
+
+    subgraph LEAF["Tier-pinned leaf agents — dispatched async → native completion"]
+        direction LR
+        PLN["loop-planner<br/>opus-4-8"]
+        BRD["board-meeting /<br/>devils-advocate<br/>opus-4-8"]
+        EXE["loop-executor<br/>sonnet-5"]
+        EVL["loop-execution-evaluator<br/>opus-4-8"]
+        FXR2["loop-fixer<br/>sonnet-5"]
+    end
+
+    subgraph REV["Specialist reviewers — by role, discovered"]
+        direction LR
+        CR["code-reviewer"]
+        SR["security-reviewer"]
+        E2E["e2e-runner"]
+        OE["over-engineering-reviewer"]
+    end
+
+    subgraph ENGINE["Tested lib/ engine — guarantees in code (15 modules · 340 tests)"]
+        direction LR
+        ST["state<br/>atomic single-writer"]
+        RS["resume<br/>crash-safe"]
+        LG["loop-guard<br/>bounded"]
+        RM["risk-matrix<br/>+ scrutiny"]
+        FW["firewall-return"]
+        MR["model-resolve<br/>Fable gate"]
+    end
+
+    ORCH -->|"Agent dispatch"| LEAF
+    EVL -->|"by what changed"| REV
+    LEAF -->|"firewall envelope:<br/>path + summary + confidence"| FW
+    FW --> ORCH
+    ORCH -.->|"reads / writes"| ENGINE
+```
+
+**The loop, phase by phase:**
 
 - **PLAN** — `loop-planner` (opus) writes the plan+DAG following `writing-plans`.
 - **EVALUATE_PLAN** — collapsed Board by default; full Board + adversarial `devils-advocate` for high-stakes (selected by the deterministic risk matrix, never ad hoc).
 - **EXECUTE** — workers in isolated worktrees, mandatory TDD, results validated by the context firewall and applied serially by the sole state writer.
 - **EVALUATE_EXEC** — the evaluator dispatches the right lenses for what changed; over-engineering + E2E + observability checks run when relevant.
 - **FIX** — bounded loop-back; at the cap it finishes `completed-with-warnings` rather than spinning.
+
+### The Board of Directors
+
+`EVALUATE_PLAN` runs a panel of **5 independent expert directors**, each a C-suite persona contributing one lens (full personas in `skills/board-of-directors/directors/chief-*.md`):
+
+| Director | Domain | Evaluates |
+|---|---|---|
+| **CA** — Chief Architect | Technical | System design, patterns, scalability, tech debt, code quality |
+| **CPO** — Chief Product Officer | Product | User value, market fit, scope, prioritization, usability |
+| **CSO** — Chief Security Officer | Security | Vulnerabilities, compliance, data protection, risk |
+| **COO** — Chief Operations Officer | Operations | Feasibility, timeline, resources, deployment |
+| **CXO** — Chief Experience Officer | Experience | UX/UI, accessibility, user journey, design consistency |
+
+- **Collapsed board (default)** — one model call emits all 5 lenses + an overall decision as a single JSON object; `lib/board-verdict.js` `parseCollapsed` validates it and rejects a malformed board.
+- **Full board (high-stakes)** — the `board-meeting` agent dispatches all 5 directors as **independent parallel subagents**; `aggregateFull` tallies their approve/reject votes into a resolution. Then a `devils-advocate` gate red-teams the plan against the design before any code runs.
 
 ## What's Inside
 
@@ -146,7 +236,7 @@ soe auto-detects and uses these if installed, and degrades gracefully if not:
 /skill-create
 ```
 
-**Tested `lib/` engine (13 modules):** `state` (atomic + single-writer lock), `resume` (crash-safe + idempotency), `loop-guard` (bounded loops), `risk-matrix` + `scrutiny` (deterministic fail-safe), `escalation` (irreversible-always-confirm), `board-verdict`, `firewall-return`, `capability-scan`, `codex-detect`, `gitignore-manager`, `setup`, `skills-core`.
+**Tested `lib/` engine (15 modules):** `state` (atomic + single-writer lock), `resume` (crash-safe + idempotency), `loop-guard` (bounded loops), `risk-matrix` + `scrutiny` (deterministic fail-safe), `escalation` (irreversible-always-confirm), `model-resolve` (tier → full model ID + Fable gate), `board-verdict`, `firewall-return`, `capability-scan`, `mcp-discovery`, `codex-detect`, `gitignore-manager`, `setup`, `skills-core`.
 
 **Hooks:** SessionStart bootstrap, PreToolUse destructive-git guard, PostToolUse formatting, learning-eval, compaction nudges.
 
@@ -154,13 +244,20 @@ soe auto-detects and uses these if installed, and degrades gracefully if not:
 
 ## Multi-Model Orchestration
 
-The model you pick with `/model` **is** the orchestrator; it delegates to tier-pinned subagents and self-selects a topology:
+The model you pick with `/model` **is** the orchestrator; it dispatches tier-pinned leaf agents and self-selects a topology. Agents pin **latest full model IDs** (not aliases — the bare `sonnet` alias lags to `claude-sonnet-4-6`):
 
-- **On Fable** → Fable orchestrates → `deep-reasoner` (opus) for reasoning, `fast-worker` (sonnet) for mechanical.
-- **On Opus** → Opus orchestrates → `fast-worker` for mechanical; `strategist` (fable) only for top-stakes if available.
+| Tier | Model ID | Role |
+|---|---|---|
+| reasoning | `claude-opus-4-8` | `deep-reasoner`, planner, board, evaluator |
+| mechanical | `claude-sonnet-5` | `fast-worker`, executor, fixer |
+| top-stakes | `claude-fable-5` | `strategist` — hardest, irreversible judgment |
+| cheap | `claude-haiku-4-5` | ad-hoc low-cost work |
+
+- **On Fable** → Fable orchestrates → `deep-reasoner` for reasoning, `fast-worker` for mechanical (no `strategist` — already the top tier).
+- **On Opus** → Opus orchestrates → `fast-worker` for mechanical; `strategist` only for top-stakes.
 - **On Sonnet** → Sonnet orchestrates → `deep-reasoner` for reasoning.
 
-Fable/Codex are optional top tiers with graceful fallback; a **context firewall** keeps the orchestrator's context lean (delegates return `path + 3-line summary + confidence`). See `skills/model-orchestration/SKILL.md`.
+**Fable gate:** availability (skipped if the user isn't on Fable) **and** config — `.soe/config.json` `fable_enabled:false` routes the strategist tier to Opus (`lib/model-resolve.js`) to cap Fable spend. Dispatch is **async → native completion** (never a poll), and a **context firewall** keeps the orchestrator lean (delegates return `path + 3-line summary + confidence`). See `skills/model-orchestration/SKILL.md`.
 
 ## Minimal-Code Discipline
 
