@@ -57,3 +57,19 @@ The reclaimable amount hinges on ONE question the critique (#6) raised: does dis
 **Root cause (corrected):** it is NOT nested-async scheduling latency and NOT `background:false`. It is the orchestrator's **improvised bash-poll being scheduler-hostile** — a blocking `until … sleep` loop inside a background agent does not yield cleanly to the runtime, so the poller and the awaited child both crawl. The native async completion path (dispatch → end turn → re-invoked with the child's return) is ~100× faster (2.8s vs minutes) and, unlike foreground `background:false`, **keeps parallel fan-out parallel**.
 
 **Fix 1 (final):** remove the bash-polling from `soe-orchestrator`/`soe-workers`; dispatch leaves async and rely on the **native completion signal** — never a bash `until`/`sleep` wait. `background:false` is dropped (unneeded, and would serialize the board). Fix 2 stays dropped (worktree = 0 min).
+
+## Phase 3 — VALIDATION (post-fix, reloaded)
+
+Fresh `kebab` trivial track, same shape as the baseline:
+
+| Metric | Baseline | Post-fix |
+|---|---|---|
+| total wall-clock | 27.6 min | **7.0 min** (3.9×) |
+| poll-wait (`until`/`sleep`) | 21.0 min | **0.0 min** |
+| `until`/`sleep` polls | many | **0** |
+| fan-out (Agent calls) | 4 | 4 |
+| tiers | — | planner/board/eval `claude-opus-4-8`, executor `claude-sonnet-5` |
+
+The prose fix was obeyed: the orchestrator dispatched async and collected the native completion signal with **zero** bash polling. The remaining ~7 min is leaf work (~3.4 min) + orchestrator reasoning/re-invocation reprocessing (~3.6 min) — inherent to multi-phase orchestration, not pathological. **Board-parallel (5 directors concurrent) was NOT exercised this run** (collapsed board / single devils-advocate gate used); the board-meeting native-collect fix is in place + guard-tested but unverified live — flagged for a future high-stakes run.
+
+**Outcome:** Fix 1 shipped and validated. Fix 2 (worktree) correctly dropped. `background:false` dropped.

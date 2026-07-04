@@ -3,6 +3,6 @@
   "description": "Marketplace for the soe plugin family",
   "owner": { "name": "Faisal Alqarni" },
   "plugins": [
-    { "name": "soe", "source": "./", "version": "0.4.0", "description": "soe core",  "author": { "name": "Faisal Alqarni" } }
+    { "name": "soe", "source": "./", "version": "0.5.0", "description": "soe core",  "author": { "name": "Faisal Alqarni" } }
   ]
 }
