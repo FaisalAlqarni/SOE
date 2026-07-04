@@ -28,13 +28,28 @@ worktree** so concurrent workers never trample one another's working tree,
 index, or branch. The worker does all of its editing, building, and testing
 inside that worktree.
 
-### 2. The return IS the completion signal — NO message bus
+### 2. The return IS the completion signal — NO message bus, NO bash poll
 
 There is **no message bus, no polling, no shared mailbox**. The orchestrator
-dispatches the worker with the Task tool and **awaits the Task result**. When
-the subagent returns, that return — and only that return — signals completion.
-This keeps the protocol synchronous and impossible to desync: there is no
-out-of-band channel to fall out of sync with.
+dispatches the worker with the Agent tool and **awaits its return**. When the
+subagent returns, that return — and only that return — signals completion.
+
+**CRITICAL — how "await" works on this runtime (CC ≥ 2.1.198 dispatches subagents
+in the BACKGROUND by default).** When you dispatch a worker, the tool replies
+`Async agent launched…` and the worker runs in the background. This IS the
+correct path — the runtime **re-invokes you with the worker's return when it
+completes** (the native completion signal). So after dispatching:
+
+- **DO** end your turn and let the native completion signal bring you back with
+  the return. Dispatch several workers this way and you receive each completion
+  as it lands (parallel fan-out stays parallel).
+- **NEVER** write a Bash `until [ -f <resultfile> ]; do sleep …; done` loop (or
+  any `sleep`-based wait) to poll for a worker's scratch/result file. A blocking
+  bash poll inside a background agent is **scheduler-hostile**: it does not yield
+  cleanly, so the poller AND the worker both crawl — measured at **2–7 min per
+  worker vs 2.8 s** for the native path. The bash poll is the single biggest
+  source of wasted wall-clock in the loop. There is no result file to wait on:
+  the worker's firewall envelope arrives in its **return**, not via a file you poll.
 
 ### 3. Serial application by a single writer
 

@@ -280,8 +280,17 @@ serially**.
 
 For each returning worker:
 
-1. **Await the Task return** — this is the only completion signal (no message
-   bus, no polling).
+1. **Await the return via the NATIVE completion signal — never a bash poll.** On
+   this runtime dispatch is asynchronous: the tool replies `Async agent launched…`
+   and the runtime **re-invokes you with the worker's return when it completes**.
+   That return is the only completion signal (no message bus). **Do NOT write a
+   Bash `until [ -f … ]; do sleep …; done` (or any `sleep`) loop to wait for a
+   worker's result file** — a blocking bash poll inside a background agent is
+   scheduler-hostile and costs **2–7 min per worker vs 2.8 s** for the native
+   path (it starves the very worker it waits on). End your turn after dispatching;
+   let the completion signal bring you back. Fan-out (e.g. the Board's directors,
+   parallel workers) dispatches all children this way and collects each native
+   return as it lands — staying parallel.
 2. **Validate the envelope** with `parse()` from `lib/firewall-return.js`. It
    accepts only `{ path, summary, confidence }`: the `path` must exist on disk,
    `summary` must be a non-empty ≤6-line handle, `confidence` a number in

@@ -30,9 +30,13 @@ file as its brief.
 
 ### 1. Independent assessment (parallel)
 
-Dispatch all 5 directors in parallel — one Task per director, in a single
-message. Give each the proposal, its context, and its persona file. Each director
-returns:
+Dispatch all 5 directors in parallel — one `Agent` call per director, in a single
+message. Give each the proposal, its context, and its persona file. Dispatch is
+asynchronous (the tool replies `Async agent launched…`); the runtime **re-invokes
+you with each director's return as it completes**. Collect the 5 native returns
+that way — **never** a Bash `until [ -f … ]; sleep` poll for a director's file (a
+blocking bash poll inside a background agent is scheduler-hostile and serializes
+what should be parallel — minutes of waste vs seconds). Each director returns:
 
 ```json
 {
