@@ -1,7 +1,7 @@
 ---
 name: loop-planner
 description: Creates a phased execution plan with a dependency DAG from a track specification. Evaluate-Loop Step 1 (planning). Tier-pinned to opus.
-model: opus
+model: claude-opus-4-8
 tools: ["Read", "Write", "Edit", "Grep", "Glob"]
 ---
 

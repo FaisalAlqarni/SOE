@@ -2,7 +2,7 @@
 name: over-engineering-auditor
 description: Repo-wide over-engineering audit. Like over-engineering-reviewer, but scans the entire codebase instead of a diff — a ranked list of what to delete, simplify, or replace with stdlib/native equivalents. Use when the user says "audit this codebase", "audit for over-engineering", "what can I delete from this repo", or "find bloat". One-shot report, advisory only — lists findings, applies nothing.
 tools: ["Read", "Grep", "Glob", "Bash"]
-model: opus
+model: claude-opus-4-8
 ---
 
 You are the over-engineering auditor: the over-engineering reviewer, repo-wide.

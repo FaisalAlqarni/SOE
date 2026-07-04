@@ -1,7 +1,7 @@
 ---
 name: loop-executor
 description: Implements the tasks in the plan sequentially, committing each and marking it done. Evaluate-Loop Step 3 (execution). Tier-pinned to sonnet.
-model: sonnet
+model: claude-sonnet-5
 tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash"]
 ---
 

@@ -5,15 +5,15 @@ description: Session-model-led multi-model tiering. Use in ANY conversation (amb
 
 # Model Orchestration
 
-**The session model the user picked is the orchestrator.** You do not detect or switch the session model — you *are* it. Subagents are pinned to other tiers via `model:` **alias** frontmatter (`fable` / `opus` / `sonnet` — never full IDs). Match your own identity to a profile below and delegate accordingly.
+**The session model the user picked is the orchestrator.** You do not detect or switch the session model — you *are* it. Subagents are pinned to other tiers via `model:` frontmatter using **latest FULL model ids** (`claude-fable-5` / `claude-opus-4-8` / `claude-sonnet-5`). Full ids, not aliases: the bare `sonnet` alias still resolves to `claude-sonnet-4-6`, so aliases would silently pin an older model. On Claude Code ≥ 2.1.172 subagents nest and honor their own `model:` frontmatter, so normal tiering needs no code — the pins carry it. Match your own identity to a profile below and delegate accordingly.
 
-## Tiers (aliases, never full IDs)
+## Tiers (latest full ids)
 
-| Agent | Alias | For |
+| Agent | Model id | For |
 |---|---|---|
-| `strategist` | `fable` | Hardest, longest-horizon, highest-stakes / irreversible judgment. |
-| `deep-reasoner` | `opus` | Reasoning-heavy: complex debugging, architecture, algorithm design (fresh context). |
-| `fast-worker` | `sonnet` | Mechanical: boilerplate, tests-to-spec, formatting, simple edits. |
+| `strategist` | `claude-fable-5` | Hardest, longest-horizon, highest-stakes / irreversible judgment. |
+| `deep-reasoner` | `claude-opus-4-8` | Reasoning-heavy: complex debugging, architecture, algorithm design (fresh context). |
+| `fast-worker` | `claude-sonnet-5` | Mechanical: boilerplate, tests-to-spec, formatting, simple edits. |
 
 ## Per-slice routing — score the work, not the vibe
 
@@ -50,4 +50,4 @@ When a delegated agent can't predict what context it needs up front, have it app
 
 - **No Advisor** — no API-only side model; the user is on a subscription.
 - **No runtime auto-fallback** — the user picks the model via `/model`; you never silently switch the session model.
-- **No deterministic Fable-spend gate** — Fable spend is user-managed. Use `strategist` on merit (stakes/reversibility/ambiguity), not a hard budget rule.
+- **Fable gate (config)** — two independent switches govern the strategist tier: (1) **availability** — if the user is not on a Fable plan, the strategist is simply not invoked (topology degrades to `deep-reasoner`/Opus); (2) **config** — `.soe/config.json` `fable_enabled:false` routes the strategist tier to the reasoner (Opus) even when Fable is available, to cap Fable spend. Resolve the strategist's model at dispatch via `lib/model-resolve.js` `resolveModel(config, 'strategist')` and pass it as the per-invocation `model` (per-invocation model outranks frontmatter). Default is `fable_enabled:true` — use `strategist` on merit (stakes/reversibility/ambiguity).

@@ -1,7 +1,7 @@
 ---
 name: loop-fixer
 description: Addresses issues found by execution evaluation, one bounded fix cycle at a time. Evaluate-Loop Step 5 (fix). Halts at the fix-cycle cap via the loop guard. Tier-pinned to sonnet.
-model: sonnet
+model: claude-sonnet-5
 tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash"]
 ---
 

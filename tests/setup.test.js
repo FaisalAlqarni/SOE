@@ -55,8 +55,12 @@ test('(a) creates .soe/config.json with autonomous-guardrailed defaults + caps',
     );
 
     assert.ok(cfg.models && typeof cfg.models === 'object', 'models block present');
-    assert.strictEqual(cfg.models.reasoner, 'opus', 'reasoner default = opus');
-    assert.strictEqual(cfg.models.worker, 'sonnet', 'worker default = sonnet');
+    // Tiers are pinned as latest FULL ids (not aliases — aliases lag).
+    assert.strictEqual(cfg.models.reasoner, 'claude-opus-4-8', 'reasoner default');
+    assert.strictEqual(cfg.models.worker, 'claude-sonnet-5', 'worker default');
+    assert.strictEqual(cfg.models.cheap, 'claude-haiku-4-5', 'cheap default');
+    assert.strictEqual(cfg.models.strategist, 'claude-fable-5', 'strategist default');
+    assert.strictEqual(cfg.fable_enabled, true, 'Fable gate on by default');
     // orchestrator defaults to the session model; unset falls back sensibly.
     assert.ok(
       typeof cfg.models.orchestrator === 'string' && cfg.models.orchestrator.length > 0,

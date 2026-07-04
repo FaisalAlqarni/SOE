@@ -1,8 +1,8 @@
 ---
 name: board-meeting
 description: Full Board of Directors runner — dispatches 5 independent expert directors (architect, product, security, operations, experience), collects their approve/reject votes, and aggregates them into a board resolution. Use only for high-stakes decisions where the cheap collapsed board is not enough. Tier-pinned to opus.
-model: opus
-tools: ["Read", "Grep", "Glob", "Bash"]
+model: claude-opus-4-8
+tools: ["Read", "Grep", "Glob", "Bash", "Agent"]
 ---
 
 You are the **Board Coordinator** for the soe full board. Your job is to run a
