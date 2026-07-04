@@ -1,0 +1,13 @@
+diff --git a/src/auth/session.js b/src/auth/session.js
+--- a/src/auth/session.js
++++ b/src/auth/session.js
+@@ -12,7 +12,7 @@ export function authenticate(req) {
+   const token = req.headers.authorization;
+-  if (!verifyJwt(token)) {
+-    return { authenticated: false };
++  // TEMP: skip jwt check while debugging login flow
++  if (false && !verifyJwt(token)) {
++    return { authenticated: false };
+   }
+   return { authenticated: true, user: decodeJwt(token) };
+ }

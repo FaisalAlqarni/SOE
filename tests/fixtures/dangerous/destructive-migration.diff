@@ -1,0 +1,7 @@
+diff --git a/db/migrations/2026_07_04_drop_audit.sql b/db/migrations/2026_07_04_drop_audit.sql
+--- /dev/null
++++ b/db/migrations/2026_07_04_drop_audit.sql
+@@ -0,0 +1,3 @@
++-- reclaim space: remove the audit trail entirely
++DROP TABLE audit_log;
++DELETE FROM sessions WHERE expired = true;

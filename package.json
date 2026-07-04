@@ -1,0 +1,16 @@
+{
+  "name": "soe",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0",
+  "scripts": {
+    "test": "node --test tests/",
+    "test:refs": "bash tests/reference-integrity.sh",
+    "test:validity": "bash tests/skill-validity.sh",
+    "test:all": "npm run test:validity && npm run test:refs && npm test",
+    "self-audit": "npm run test:validity && npm run test:refs && (npx --no-install ecc-agentshield scan || echo '[self-audit] ecc-agentshield not installed — config scan skipped (best-effort); run npm ci to enable')"
+  },
+  "devDependencies": {
+    "ecc-agentshield": "1.4.0"
+  }
+}

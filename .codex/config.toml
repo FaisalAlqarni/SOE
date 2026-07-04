@@ -1,0 +1,28 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+# soe — Codex CLI Layer-1 packaging (design §8, resolution F15)
+#
+# LAYER-1 ONLY. This exposes soe's *discipline* surface to Codex:
+#   - skills   (the shared ../skills/ tree — NOT duplicated here)
+#   - rules    (the shared ../rules/ tree)
+#   - adversarial-review guidance (a discipline skill)
+#   - shared committed state: .soe/ and docs/plans/
+#
+# The full autonomous ENGINE (Layer-2: orchestrator loop, worker fan-out,
+# context firewall, hook-driven session lifecycle) is **Claude-Code-only in
+# v1**. Codex/OpenCode engine adapters are DEFERRED / best-effort and are NOT
+# promised here. See AGENTS.md in this directory for the full deferral note.
+#
+# Copy to ~/.codex/config.toml for global defaults, or keep at the repo root
+# as .codex/config.toml for project-local settings.
+#
+# Docs: https://developers.openai.com/codex/config-reference
+
+# Leave model/model_provider unset so Codex uses its built-in defaults.
+
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+# Append soe's Layer-1 discipline index to every prompt (additive; does not
+# replace AGENTS.md). This points Codex at the shared skills/rules trees.
+persistent_instructions = "Follow soe Layer-1 discipline. Read .codex/AGENTS.md, then load discipline skills from the shared ../skills/ tree and rules from ../rules/common/ as needed. Persist all cross-harness work in the shared committed state: .soe/ (run/plan state) and docs/plans/ (design docs). Do NOT assume the soe autonomous engine (Layer-2) is available — it is Claude-Code-only in v1."

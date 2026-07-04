@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "README.md",
+    "../skills/using-soe/SKILL.md",
+    "../rules/common/workflow-orchestration.md"
+  ],
+  "skills": {
+    "paths": [
+      "../skills"
+    ]
+  }
+}
