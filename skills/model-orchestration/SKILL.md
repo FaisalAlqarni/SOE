@@ -39,6 +39,8 @@ Absent tiers (Fable, or Codex) are simply not used — soe-core never hard-depen
 
 Delegated agents write full output to a shared scratch path (an **absolute** path outside any worktree) and return **only** `path + 3-line summary + confidence`. Trust the summary; pull the full file only when you must. This keeps your context clean across many delegations.
 
+When a delegated agent can't predict what context it needs up front, have it apply `soe:iterative-retrieval` (dispatch → evaluate → refine) to gather context progressively instead of over-loading its window.
+
 ## Two usage levels
 
 - **Ambient** — no `/go`, no track, no state. In *any* conversation (ad-hoc debugging, review, enhancement) you choose to spawn the right pinned agent per this skill. This is a *convention you follow*, not an enforced router.

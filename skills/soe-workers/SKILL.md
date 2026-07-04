@@ -94,6 +94,11 @@ The worker writes there; the orchestrator reads from there only when it decides
 to (e.g. on low confidence). The default path stays firewalled behind the
 envelope.
 
+A worker that doesn't yet know what context it needs should use
+`soe:iterative-retrieval` (dispatch → evaluate → refine, max 3 cycles) to fetch
+context progressively rather than over-loading its window up front — this
+complements the context firewall and keeps the worker token-frugal.
+
 ## Dispatch procedure
 
 1. Ensure the worker's isolated worktree (`soe:using-git-worktrees`).
