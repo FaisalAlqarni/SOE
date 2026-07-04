@@ -101,6 +101,28 @@ UI section in the real design and cite the node/component names. It is
 no prompt, no offer — when absent, unauthenticated, or no URL was provided, in
 which case the agent derives the UI from intent as usual.
 
+## MCPs by capability (via `soe:using-mcp`)
+
+Discovery covers two axes: skills/agents **by role** (above) AND installed **MCP
+servers by capability**. Beyond the named MCP providers in the table above
+(graphify/codex/figma/chrome-devtools), soe reuses **ANY** installed MCP by
+capability via `soe:using-mcp`:
+
+- At run start, alongside the role→provider map, build an MCP **capability map**
+  from the session's `mcp__*` tools with `lib/mcp-discovery.js` `classifyMcpTools`
+  (`byCapability`: docs/browser/graph/design/database/search/email/calendar/
+  storage/…; `servers`: per-server read/write/mixed access).
+- **Routing:** for a needed capability, the **four named providers take
+  precedence** when present (richer integration); otherwise
+  `resolveCapability(map, capability)` picks the best discovered MCP, and when it
+  returns `null` the loop falls back **silently** to soe's native tools.
+- **Posture — same read-auto / write-confirm split as above, per MCP TOOL:**
+  **read/analysis** MCP tools → **auto-use + log**; **write/irreversible** MCP
+  tools → **follow the confirm rule** (`soe:soe-modes` / `lib/escalation.js`
+  `isIrreversible`). Never auto-invoke a mutating MCP without confirmation.
+
+See `soe:using-mcp` for the full routing + posture contract.
+
 ## Optional tag convention (precise routing)
 
 For precise routing, a provider MAY declare its role in frontmatter — this is

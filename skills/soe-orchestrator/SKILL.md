@@ -108,6 +108,14 @@ phase — advance the state machine. If there is no `state.json` yet, initialize
 `loop_state.step_status = "NOT_STARTED"`, `tasks: []`, and `config` mirrored from
 `.soe/config.json`) via `writeState` under the lock, then begin at PLAN.
 
+**Also at run start (once):** build the capability maps per
+`soe:capability-discovery` — the skill/agent **role→provider** map
+(`lib/capability-scan.js`) AND the MCP **capability** map from the session's
+`mcp__*` tools (`soe:using-mcp` / `lib/mcp-discovery.js` `classifyMcpTools`) — so
+routing prefers the best-matching installed specialist by role and reuses any
+installed MCP by capability, falling back to soe-core's generics / native tools
+when neither is present.
+
 ---
 
 ## STEP 2: Detect the phase
