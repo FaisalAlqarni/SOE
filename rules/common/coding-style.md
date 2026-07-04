@@ -1,5 +1,7 @@
 # Coding Style
 
+> Write the **shortest working diff that's understood** — the ladder in `skills/minimal-code/SKILL.md` (reuse → stdlib → native → minimal) is the always-on default for implementation code (never docs, never at the expense of the guardrails below).
+
 ## Immutability (CRITICAL)
 
 ALWAYS create new objects, NEVER mutate existing ones. Immutable data prevents hidden side effects, makes debugging easier, and enables safe concurrency.

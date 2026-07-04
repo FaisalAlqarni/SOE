@@ -1,61 +1,49 @@
 # Agent Orchestration
 
-## Available Agents
+> soe ships an orchestration engine plus specialist agents. The engine coordinates; you rarely dispatch engine agents by hand.
 
-Located in `~/.claude/agents/`:
+## Engine agents (dispatched by the Evaluate-Loop, not by you)
 
-| Agent | Purpose | When to Use |
-|-------|---------|-------------|
-| planner | Implementation planning | Complex features, refactoring |
-| architect | System design | Architectural decisions |
-| tdd-guide | Test-driven development | New features, bug fixes |
-| code-reviewer | Code review | After writing code |
-| security-reviewer | Security analysis | Before commits |
-| build-error-resolver | Fix build errors | When build fails |
-| e2e-runner | E2E testing | Critical user flows |
-| refactor-cleaner | Dead code cleanup | Code maintenance |
-| doc-updater | Documentation | Updating docs |
-| database-reviewer | Database review | Schema/query changes |
-| go-build-resolver | Go build fixes | Go build failures |
-| go-reviewer | Go code review | Go code changes |
-| python-reviewer | Python code review | Python code changes |
+| Agent | Role |
+|-------|------|
+| `soe-orchestrator` | The Evaluate-Loop coordinator (session model); sole writer of `.soe/tracks/{id}/state.json` |
+| `loop-planner` | PLAN phase — writes the plan+DAG following the `soe:writing-plans` discipline |
+| `loop-executor` / worker template | EXECUTE — implementation workers in isolated worktrees |
+| `loop-execution-evaluator` | EVALUATE_EXEC — selects + dispatches the right evaluators/reviewers by what changed |
+| `loop-fixer` | Bounded FIX loop (max 5 cycles) |
+| `board-meeting` | Full Board of Directors (5 personas) for high-stakes plans |
+| `devils-advocate` | Adversarial review (design/plan modes) |
 
-## Immediate Agent Usage
+## Model-tier role agents (multi-model, see `model-routing.md`)
 
-No user prompt needed:
-1. Complex feature requests - Use **planner** agent
-2. Code just written/modified - Use **code-reviewer** agent
-3. Bug fix or new feature - Use **tdd-guide** agent
-4. Architectural decision - Use **architect** agent
+| Agent | Pin | Use |
+|-------|-----|-----|
+| `strategist` | fable | Top-tier judgment (high-stakes) |
+| `deep-reasoner` | opus | Reasoning/debug/architecture |
+| `fast-worker` | sonnet | Mechanical implementation |
 
-## Parallel Task Execution
+## Specialist agents (dispatched by the evaluator, or `@`-invoked ad hoc)
 
-ALWAYS use parallel Task execution for independent operations:
+| Agent | Use |
+|-------|-----|
+| `code-reviewer` | Code review (after writing code) |
+| `security-reviewer` | Security analysis (before commits) |
+| `architect` | System/architectural design |
+| `tdd-guide` | Test-first guidance |
+| `build-error-resolver` | Fix build errors |
+| `refactor-cleaner` | Dead-code cleanup |
+| `doc-updater` | Documentation sync |
+| `e2e-runner` | E2E testing (browser via chrome-devtools-mcp if present, else Playwright; skips if absent) |
+| `database-reviewer` | Schema/query review |
+| `logging-reviewer` | Wide-events logging review |
+| `over-engineering-reviewer` / `over-engineering-auditor` | Advisory over-engineering lens (diff / repo) — code only |
 
-```markdown
-# GOOD: Parallel execution
-Launch 3 agents in parallel:
-1. Agent 1: Security analysis of auth module
-2. Agent 2: Performance review of cache system
-3. Agent 3: Type checking of utilities
+Language-specific reviewers (Go, Python, etc.) are discovered from installed plugins (e.g. ECC) by role — soe-core falls back to the generic reviewer when a specialist isn't installed.
 
-# BAD: Sequential when unnecessary
-First agent 1, then agent 2, then agent 3
-```
+## Parallel execution
 
-## Multi-Perspective Analysis
+Use parallel Task execution for independent operations; the engine runs workers in parallel worktrees and applies results serially. Dispatch subagents liberally to keep the main context lean — offload research/exploration, not just implementation. One focused task per subagent.
 
-For complex problems, use split role sub-agents:
-- Factual reviewer
-- Senior engineer
-- Security expert
-- Consistency reviewer
-- Redundancy checker
+## Guard
 
-## Subagent Strategy
-
-- Use subagents liberally to keep main context window clean
-- Offload research and exploration to subagents — not just implementation
-- For complex problems, throw more compute at it — dispatch parallel agents
-- When in doubt, dispatch a subagent rather than polluting main context
-- Each subagent gets one focused task for clean execution
+The **minimal-code** discipline applies to *implementation* workers only — never to review/security/audit/spec agents (they stay thorough) and never to documentation (code only).

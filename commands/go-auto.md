@@ -116,6 +116,11 @@ acceptance criteria. No "TBD"/placeholders — make every requirement concrete.
 Commit the design doc. Return ONLY the written path.
 ```
 
+For UI/frontend work: if the goal references a **Figma URL**, use
+`soe:using-figma` to READ design context (components, layout, tokens, variants,
+flows) and ground the design doc's UI section in the actual design. It skips
+silently when Figma is unavailable, unauthenticated, or no URL was given.
+
 This runs autonomously (in the background from the user's perspective) — no
 brainstorm dialogue.
 

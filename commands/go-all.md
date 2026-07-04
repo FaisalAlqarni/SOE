@@ -113,6 +113,11 @@ point** (that is what makes the cross-check meaningful):
   criteria — no placeholders). Return ONLY the written path.
   ```
 
+  For UI/frontend work: if the goal references a **Figma URL**, use
+  `soe:using-figma` to READ design context and ground the auto-spec's UI section
+  in the actual design (silent skip when Figma is unavailable, unauthenticated,
+  or no URL was given).
+
 - **B. Human brainstorm** — invoke **`soe:brainstorming`** interactively. It runs
   its collaborative dialogue under its HARD-GATE and writes the approved design
   to `docs/plans/<date>-<slug>-design.human.md`. **Do NOT feed the auto-spec into

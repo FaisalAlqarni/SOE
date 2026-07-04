@@ -31,4 +31,4 @@ Before destructive or irreversible steps, always confirm:
 
 ## Reference
 
-For detailed checklists, confidence thresholds, and examples → `skills/clarify-first/SKILL.md`
+For turning ambiguous asks into testable acceptance criteria → `skills/intent-driven-development/SKILL.md`. In the pipeline, this is a **judgment gate** (front-loaded via brainstorming; see `skills/gate-classification/SKILL.md`).

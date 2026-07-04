@@ -97,6 +97,12 @@ digraph brainstorming {
 - Ask after each section whether it looks right so far
 - Cover: architecture, components, data flow, error handling, testing
 - Be ready to go back and clarify if something doesn't make sense
+- **UI/frontend work — ground the spec in a real Figma design if one exists.** If
+  the user has a Figma design, consult `soe:using-figma` to read the actual
+  design context (components, layout, spacing/tokens, variants, flows) and ground
+  the UI section in it instead of guessing. It skips silently when Figma is
+  unavailable, unauthenticated, or no URL was given — in which case describe the
+  UI from intent as usual.
 
 **Design for isolation and clarity:**
 

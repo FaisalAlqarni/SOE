@@ -87,11 +87,19 @@ skipped when absent (core never hard-depends on them):
 |---|---|---|---|---|
 | **graphify** (code knowledge-graph) | `graphify-out/graph.json` OR its registered MCP server (`query_graph`/`get_neighbors`/`shortest_path`/`get_pr_impact`) | **retrieval** (route context queries through the graph instead of grep-and-read) + **blast-radius** (feed `get_pr_impact`/`shortest_path` into `lib/risk-matrix.js` `blastRadius` for fail-safe scrutiny) | ENHANCEMENT — read-only, auto-use + log | `soe:using-graphify` |
 | **codex-peer** (different-perspective peer) — **experimental** | `lib/codex-detect.js` `isCodexAvailable` — present only when BOTH the `codex` CLI is on PATH AND the `openai/codex-plugin-cc` plugin is installed | **peer-synthesis** (high-stakes parallel synthesis per `soe:model-orchestration`: run Opus AND Codex on the same problem, merge without cross-contamination) | ENHANCEMENT — read-only, auto-use + log; **best-effort/experimental, silently skipped when absent** | `soe:using-codex` |
+| **figma** (design source) | a registered Figma MCP (its `figma` skill / `mcp__*figma*` tools — `use_figma` / `get_design_context` / `authenticate`) — the **three-part guard**: available AND authenticated AND a Figma URL was given | **design-source** (during UI/frontend spec creation, READ design context — components, layout, spacing/tokens, variants, flows — from the URL and ground the design doc's UI section in the ACTUAL design; cite the real node/component names) | READ-ONLY, auto-use + log; **silently skipped when absent OR unauthenticated OR no URL** — never prompts/offers, never writes to Figma (no generate-design / code-connect) | `soe:using-figma` |
 
 When present, adopt graphify per `soe:using-graphify` (consume-only, staleness-
 aware, honor `INFERRED`/`AMBIGUOUS` confidence labels, silent fallback to native
 file/grep tools when absent or empty). Its blast-radius signal may only **raise**
 the risk tier to `full`, never lower it.
+
+For **figma**, adopt per `soe:using-figma` only when its **three-part guard**
+holds (available AND authenticated AND a Figma URL was given); ground the spec's
+UI section in the real design and cite the node/component names. It is
+**READ-ONLY** (never generate-design / code-connect) and **silently skipped** —
+no prompt, no offer — when absent, unauthenticated, or no URL was provided, in
+which case the agent derives the UI from intent as usual.
 
 ## Optional tag convention (precise routing)
 

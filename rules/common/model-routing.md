@@ -1,33 +1,42 @@
 # Model Routing
 
-> Route tasks to the most cost-effective model tier.
+> Route each unit of work to the right model tier. soe is **session-model-led**: the model you pick with `/model` is the orchestrator; it delegates to tier-pinned subagents.
 
-## Tier Summary
+## Tiers (aliases used in agent `model:` frontmatter)
 
-| Tier | Use For |
-|------|---------|
-| **Opus** | Architecture, planning, complex bugs (4+ signals), security analysis |
-| **Sonnet** | Implementation, standard debugging, tests, refactoring |
-| **Haiku** | Docs, formatting, boilerplate, mechanical changes |
+| Alias | Role agent | Use for |
+|------|------|---------|
+| **`sonnet`** | `fast-worker` | Mechanical work: implementation, boilerplate, tests, formatting, simple edits |
+| **`opus`** | `deep-reasoner` | Reasoning-heavy: architecture, complex debugging, algorithm design, review |
+| **`fable`** | `strategist` | Hardest / longest-horizon judgment (optional top tier; falls back to Opus if unavailable) |
 
-## Quick Decision
+Never pin a full model ID (e.g. `claude-fable-5`) — use the alias.
 
-1. "Do I need to THINK deeply?" → **Opus**
-2. "Do I need to BUILD something?" → **Sonnet**
-3. "Do I need to APPLY changes mechanically?" → **Haiku**
+## Session-model-led topology
 
-Default to Sonnet when uncertain.
+The orchestrator applies the profile for its own model (see `skills/model-orchestration/SKILL.md`):
+- **On Fable** → Fable orchestrates; delegates reasoning to `deep-reasoner`, mechanical to `fast-worker`.
+- **On Opus** → Opus orchestrates; mechanical → `fast-worker`; reasoning stays local or `deep-reasoner`; `strategist` only if Fable is available.
+- **On Sonnet** → Sonnet orchestrates; reasoning → `deep-reasoner`, mechanical stays local.
 
-## Bug Escalation
+Graceful by construction: absent tiers (Fable) are simply not used. No Advisor (API-only), no runtime auto-fallback, no forced spend gate — the user picks the model.
 
-- Start all bugs on Sonnet
-- Escalate to Opus after: 3+ failed fixes, circular investigation, scope expansion to 5+ files
-- Self-check after each attempt: Fixes tried [N] | Files touched [N] | Confidence [H/M/L]
+## Quick decision
 
-## Agent Model Tiers
+1. "Do I need top-tier judgment on a hard, high-stakes call?" → **`strategist` (fable)**
+2. "Do I need to THINK deeply / reason / review?" → **`deep-reasoner` (opus)**
+3. "Do I need to BUILD or apply mechanically?" → **`fast-worker` (sonnet)**
 
-Agent files specify their model tier. Respect these assignments when dispatching subagents.
+## Bug escalation
+
+- Start bugs on `sonnet`.
+- Escalate to `deep-reasoner` (opus) after 3+ failed fixes, circular investigation, or scope expansion to 5+ files.
+- Self-check after each attempt: Fixes tried [N] | Files touched [N] | Confidence [H/M/L].
+
+## Context firewall (token frugality)
+
+Delegated subagents write full output to scratch and return only `path + 3-line summary + confidence`; the orchestrator reads on demand. Keeps the orchestrator's context lean.
 
 ## Reference
 
-For detailed scoring, decision trees, and examples → `skills/model-routing/SKILL.md`
+Full methodology, per-slice routing, and profiles → `skills/model-orchestration/SKILL.md`.
