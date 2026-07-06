@@ -137,6 +137,18 @@ Concrete results
 ```
 
 
+## Faceted Prompt Skeleton (for agent / worker prompts)
+
+When a skill or agent instructs a **subagent**, structure the prompt as ordered *facets* — more reliable than freeform constraint prose (adapted from ccswarm, MIT). Render in this order (constraints **last**, for recency):
+
+1. **Persona** — role / expertise / operating principles (frames the system role).
+2. **Knowledge** — the specific context + references it needs (nothing more).
+3. **Instruction** — the one concrete task.
+4. **Policy** — split into `rules` (MUST), `prohibitions` (`NEVER: …`), and `standards` (quality bars). Splitting one "constraints" blob into these three catches far more.
+5. **Output contract** — the exact return shape: a grep-able verdict line (`VERDICT=…`), a JSON schema, or a bounded artifact handle (path + summary + confidence). Never "return your findings" — name the format.
+
+Keep each facet minimal (assume Claude is smart — add only what it lacks).
+
 ## Skill Discovery Optimization (SDO)
 
 **Critical for discovery:** Future agents need to FIND your skill

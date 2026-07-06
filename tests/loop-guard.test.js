@@ -4,10 +4,12 @@ import assert from 'node:assert';
 import {
   incFix,
   incPlanRevision,
+  incBoardReject,
   resetFix,
   resetPlanRevision,
   DEFAULT_MAX_FIX_CYCLES,
   DEFAULT_MAX_PLAN_REVISIONS,
+  DEFAULT_MAX_BOARD_REJECTS,
 } from '../lib/loop-guard.js';
 
 // loop-guard.test.js — the Evaluate-Loop MUST be bounded (addresses adversarial
@@ -77,6 +79,25 @@ test('(b) incPlanRevision increments and halts at the default cap (3) with reaso
   assert.equal(capped.reason, 'plan-cap');
   assert.equal(capped.count, DEFAULT_MAX_PLAN_REVISIONS);
   assert.equal(state.loop_state.plan_revision_count, DEFAULT_MAX_PLAN_REVISIONS);
+});
+
+// --- (b2) incBoardReject — same behavior, board-reject-cap (default 3) --------
+
+test('(b2) incBoardReject increments the board-reject counter and halts at the default cap (3)', () => {
+  const state = freshState();
+
+  for (let i = 1; i <= DEFAULT_MAX_BOARD_REJECTS - 1; i++) {
+    const r = incBoardReject(state);
+    assert.equal(r.halt, false, `board reject ${i} should be under the cap`);
+    assert.equal(r.count, i);
+    assert.equal(state.loop_state.board_reject_count, i);
+  }
+
+  const capped = incBoardReject(state);
+  assert.equal(capped.halt, true, 'the 3rd board reject reaches the cap → halt');
+  assert.equal(capped.reason, 'board-reject-cap');
+  assert.equal(capped.count, DEFAULT_MAX_BOARD_REJECTS);
+  assert.equal(state.loop_state.board_reject_count, DEFAULT_MAX_BOARD_REJECTS);
 });
 
 // --- (c) Configurable caps ----------------------------------------------------

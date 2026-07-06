@@ -107,6 +107,25 @@ Skip any step = lying, not verifying
 ❌ Trust agent report
 ```
 
+## Done-Means-Done Scan (run before claiming complete)
+
+The tables above catch *reasoning* failures ("should work"). This scan catches *artifact* failures — placeholder/fake work masquerading as done. Run it on the **changed production paths** before any completion claim (a check you perform, not a new framework; the grep set is adapted from ruflo's `production-validator`, MIT):
+
+```bash
+# 1. No stubs / placeholders left in the diff's PRODUCTION code (tests/docs excluded)
+git diff --name-only | grep -vE '(^|/)(test|tests|spec|__tests__)/|\.(md|test|spec)\.' | while read -r f; do
+  [ -f "$f" ] && grep -nEi 'TODO|FIXME|XXX|\bstub\b|\bmock(ed)?\b|\bfake\b|not[ _-]?implemented|placeholder|throw new Error\(["'"'"']not impl' "$f"
+done
+# 2. The change is real — the diff must actually show it
+git diff --stat
+```
+
+- **ANY hit in step 1 on a production path → NOT complete.** Finish it, or *explicitly record it as a known gap* in the completion report (never silently).
+- Tests/docs may legitimately contain `mock`/`stub` — the scan is scoped to production paths on purpose.
+- If the change touches a service/endpoint, also exercise its real health/contract check (project-specific) — not just that the file compiles.
+
+This makes the skill's "verify by artifact, not report" principle **executable**, not just asserted.
+
 ## Why This Matters
 
 From 24 failure memories:

@@ -96,7 +96,7 @@ The orchestrator, not you, advances `.soe/tracks/{trackId}/state.json`. Your ver
 
 ## Output Protocol
 
-Write detailed evaluation results to `.soe/tracks/{trackId}/evaluation-report.md`. Return ONLY a concise JSON verdict to the orchestrator:
+Write detailed evaluation results to `.soe/tracks/{trackId}/evaluation-report.md`. This exact path IS the provenance report handle the orchestrator records in `completeTrack`'s provenance record — the completion gate requires this file to exist on disk, so ALWAYS write it before returning your PASS/FAIL verdict. Return ONLY a concise JSON verdict to the orchestrator:
 
 ```json
 {"verdict": "PASS|FAIL", "summary": "<one sentence>", "issues": N}

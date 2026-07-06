@@ -63,8 +63,12 @@ worker-written shared state** (you are the sole serial writer of `state.json`).
    - **FIX** → `incFix` first; at the cap finish `completed-with-warnings`, else
      dispatch `soe:loop-fixer` (sonnet) with the evaluation report, then return
      to `EVALUATE_EXEC` to re-verify (always re-verify after a fix).
-   - **COMPLETE** → mark `status: complete` under the lock and report a concise
-     summary.
+   - **COMPLETE** → completion goes through the code gate: the EVALUATE_EXEC PASS
+     branch calls `completeTrack(stateDir, provenance)` (lib/state.js), which runs
+     the provenance gate and advances `loop_state.current_step` to COMPLETE
+     atomically. NEVER hand-write `status`/`current_step` to the complete state
+     under the lock — `completeTrack` owns that transition. Then run
+     `soe:finishing-a-development-branch` as the finish step.
 4. **Apply + advance** under `withWriterLock`, then loop back to 2.
 
 ## Non-negotiables

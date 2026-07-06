@@ -307,6 +307,17 @@ For each returning worker:
 When every task is `completed` (`resumeFromDir` returns `DONE`), advance to
 `EVALUATE_EXEC`.
 
+### Advisory undo + human-in-the-loop gates
+
+**Advisory undo (from→to).** Each time you apply a worker's result under the lock, append an advisory record `{ task, before_sha, after_sha }` to `.soe/tracks/{id}/decision-log.md`. This is **advisory only** — it exists so a human can review or manually revert; the engine NEVER auto-reverts. (This is the only surviving piece of the old provenance-ledger idea, kept solely because it feeds human undo.)
+
+**Sensitive-path + ESCALATE gates (`lib/hitl.js`).** Before applying a worker whose diff touches a sensitive path — check with `isSensitivePath(path)` (deny-list: secrets, `.env`, key material, CI/infra) — and whenever a full-tier Board returns `ESCALATE`, route through HITL according to the track's interaction mode (`soe:soe-modes`):
+- **autonomous-guardrailed** (default): BLOCK on a sensitive-path apply or an ESCALATE — call `requestApproval(stateDir, { kind, detail })`, then poll `checkApproval(stateDir, id)` via the native completion path (NOT a bash sleep-loop); proceed only on `approve`, abort the apply on `deny`.
+- **interactive**: ALWAYS prompt the human before applying (sensitive or not) via the same `requestApproval`/`checkApproval` handshake.
+- **fully-agentic**: LOG the sensitive-path / ESCALATE to `.soe/tracks/{id}/decision-log.md` and PROCEED without blocking (the operator has accepted full autonomy).
+
+Never silently apply a sensitive-path change or silently complete an ESCALATE in autonomous-guardrailed or interactive mode.
+
 ### EVALUATE_EXEC → `soe:loop-execution-evaluator`
 
 Dispatch `soe:loop-execution-evaluator` (opus-pinned). It selects the right
@@ -319,7 +330,28 @@ evaluators for the track type and dispatches them:
 
 It writes an evaluation report and returns a PASS/FAIL verdict.
 
-- **PASS** → advance to `COMPLETE`.
+- **PASS** → build the track provenance record and call the **required** completion gate. NEVER advance to COMPLETE by hand:
+  ```
+  provenance = {
+    implementers: [<the worker agent(s) that implemented this track, e.g. 'soe:fast-worker'>],
+    evaluator: {
+      agent: 'soe:loop-execution-evaluator',
+      verdict: 'PASS',
+      report: '<absolute path to>.soe/tracks/{id}/evaluation-report.md',   // record an ABSOLUTE path (resolve from the project root) so the gate's on-disk check is cwd-independent
+    },
+    tests?: { ran, summary },
+  }
+  completeTrack(stateDir, provenance)   // lib/state.js — runs the gate, THEN advances loop_state to COMPLETE
+  ```
+  `completeTrack` **throws** if the report is missing/dangling, the verdict is not PASS, or the evaluator also implemented (self-review). A throw here is a **hard integrity halt** — surface it loudly and stop; do NOT fall back to `advanceStep` or a manual hand-write of the `current_step` field to the COMPLETE state. `completeTrack` is the ONLY sanctioned way to reach COMPLETE.
+
+  **Full-tier tracks — Board gate (before completeTrack).** When the track tier is `full` (high-stakes), an evaluator PASS is necessary but not sufficient. After the evaluator PASSes, run the Board and fold its decision into the gate:
+  1. Dispatch the Board (`soe:board-meeting` for the full escalation board, else the collapsed board) and compute the unified decision with `boardDecision(result, mode)` from `lib/board-gate.js` → one of `APPROVED | APPROVED_WITH_REVIEW | REJECTED | ESCALATE`.
+  2. **APPROVED / APPROVED_WITH_REVIEW** → set `provenance.board = { decision, tier: 'full' }` and call `completeTrack(stateDir, provenance)` (the gate double-checks the board decision permits completion).
+  3. **REJECTED** → consume a board-reject cycle: `incBoardReject(state)` from `lib/loop-guard.js`, persist the counter under the lock. Under the cap → route to `FIX` with the board's concerns. At the cap (`halt`, reason `board-reject-cap`) → finish `completed-with-warnings` with the unresolved board concerns recorded. Never loop the board unbounded.
+  4. **ESCALATE** → route to human-in-the-loop (see the interaction modes); if HITL is unavailable in the current mode, halt as `completed-with-warnings` — NEVER silently complete an ESCALATE.
+
+  Non-full tiers skip the board entirely — the evaluator gate alone governs their completion.
 - **FAIL** → advance to `FIX` (see the guard below).
 
 **Weighing the over-engineering lens (advisory only).** The over-engineering lens **never produces a FAIL verdict and never routes to FIX** — correctness/security/integration evaluators own the verdict; keeping it advisory avoids extra token-costly fix loops. Log its `net: -N lines possible` findings to `.soe/tracks/{id}/decision-log.md`. On a substantive over-build of *safe* (non-high-stakes) code, note a suggested follow-up `/soe:simplify` rather than auto-fixing. High-stakes code → advisory only, never reduce.
@@ -342,17 +374,21 @@ cap survives a crash/resume.
 
 ### COMPLETE
 
-Completion is owned by `soe:finishing-a-development-branch`, which acts as the
-COMPLETE gate. Before marking the track done, invoke it: it **refuses to finish if
-required gates are unchecked** — it reads the required-gate flags from
-`.soe/tracks/{id}/state.json` (the pipeline-state checklist) and will not proceed
-while any required gate is still unchecked/failed. It also preserves the
-`soe:extract-patterns` learning hook at completion (harvest reusable patterns from
-the session).
+By the time you reach COMPLETE, the EVALUATE_EXEC PASS branch has already called
+`completeTrack(stateDir, provenance)` — the **code gate** (required, enforced): it
+ran the provenance gate and advanced `loop_state.current_step` to `COMPLETE` in one
+atomic locked write. You do **not** set `current_step` to the COMPLETE state by hand
+anywhere — that ungated write is forbidden; `completeTrack` owns the transition.
 
-Only once it reports the gates satisfied: mark `state.status = "complete"` and
-`loop_state.current_step = "COMPLETE"` under the lock, record completion metadata,
-and report a concise summary (tasks completed, commits, any warnings). Done.
+`soe:finishing-a-development-branch` is then the **finish step** (human-facing): it
+reads the required-gate flags from `.soe/tracks/{id}/state.json` and **refuses to
+finish while any required gate is unchecked/failed**, preserves the
+`soe:extract-patterns` learning hook, records completion metadata, and reports a
+concise summary (tasks completed, commits, any warnings).
+
+Order is fixed: `completeTrack` (code gate — advances to COMPLETE) →
+`soe:finishing-a-development-branch` (finish step). The finish step never runs on a
+track whose `loop_state.current_step` is not already `COMPLETE`.
 
 ---
 

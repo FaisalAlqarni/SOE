@@ -8,7 +8,7 @@
 |-------|------|
 | `soe-orchestrator` | The Evaluate-Loop coordinator (session model); sole writer of `.soe/tracks/{id}/state.json` |
 | `loop-planner` | PLAN phase — writes the plan+DAG following the `soe:writing-plans` discipline |
-| `loop-executor` / worker template | EXECUTE — implementation workers in isolated worktrees |
+| `soe-workers` (skill) → `fast-worker` | EXECUTE — implementation workers in isolated worktrees |
 | `loop-execution-evaluator` | EVALUATE_EXEC — selects + dispatches the right evaluators/reviewers by what changed |
 | `loop-fixer` | Bounded FIX loop (max 5 cycles) |
 | `board-meeting` | Full Board of Directors (5 personas) for high-stakes plans |

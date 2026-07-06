@@ -161,7 +161,7 @@ flowchart TB
         direction LR
         PLN["loop-planner<br/>opus-4-8"]
         BRD["board-meeting /<br/>devils-advocate<br/>opus-4-8"]
-        EXE["loop-executor<br/>sonnet-5"]
+        EXE["soe-workers →<br/>fast-worker<br/>sonnet-5"]
         EVL["loop-execution-evaluator<br/>opus-4-8"]
         FXR2["loop-fixer<br/>sonnet-5"]
     end
@@ -174,7 +174,7 @@ flowchart TB
         OE["over-engineering-reviewer"]
     end
 
-    subgraph ENGINE["Tested lib/ engine — guarantees in code (15 modules · 340 tests)"]
+    subgraph ENGINE["Tested lib/ engine — guarantees in code (18 modules · 386 tests)"]
         direction LR
         ST["state<br/>atomic single-writer"]
         RS["resume<br/>crash-safe"]
@@ -197,6 +197,7 @@ flowchart TB
 - **EVALUATE_PLAN** — collapsed Board by default; full Board + adversarial `devils-advocate` for high-stakes (selected by the deterministic risk matrix, never ad hoc).
 - **EXECUTE** — workers in isolated worktrees, mandatory TDD, results validated by the context firewall and applied serially by the sole state writer.
 - **EVALUATE_EXEC** — the evaluator dispatches the right lenses for what changed; over-engineering + E2E + observability checks run when relevant.
+- **COMPLETE** — gated in code: a track reaches `COMPLETE` only via `completeTrack()`, which requires an **independent, non-author evaluator PASS whose report exists on disk** (`lib/provenance.js`) — self-certification is rejected. `full`-tier tracks also need a Board decision of `APPROVED`/`APPROVED_WITH_REVIEW` (`lib/board-gate.js`), with board rejections bounded. Sensitive-path edits and board `ESCALATE` route through graduated HITL (`lib/hitl.js`) per interaction mode.
 - **FIX** — bounded loop-back; at the cap it finishes `completed-with-warnings` rather than spinning.
 
 ### The Board of Directors
@@ -218,7 +219,7 @@ flowchart TB
 
 **Discipline pipeline** (Superpowers 6.1.1): `brainstorming`, `writing-plans`, `executing-plans`, `subagent-driven-development`, `test-driven-development`, `systematic-debugging`, `verification-before-completion`, `using-git-worktrees`, `finishing-a-development-branch`, `requesting/receiving-code-review`, `writing-skills`, `dispatching-parallel-agents`.
 
-**Engine agents:** `soe-orchestrator`, `loop-planner`, `loop-executor`, `loop-execution-evaluator`, `loop-fixer`, `board-meeting`, `devils-advocate`.
+**Engine agents:** `soe-orchestrator`, `loop-planner`, `soe-workers` (`fast-worker`), `loop-execution-evaluator`, `loop-fixer`, `board-meeting`, `devils-advocate`.
 
 **Multi-model role agents:** `strategist` (fable), `deep-reasoner` (opus), `fast-worker` (sonnet).
 
@@ -236,7 +237,7 @@ flowchart TB
 /skill-create
 ```
 
-**Tested `lib/` engine (15 modules):** `state` (atomic + single-writer lock), `resume` (crash-safe + idempotency), `loop-guard` (bounded loops), `risk-matrix` + `scrutiny` (deterministic fail-safe), `escalation` (irreversible-always-confirm), `model-resolve` (tier → full model ID + Fable gate), `board-verdict`, `firewall-return`, `capability-scan`, `mcp-discovery`, `codex-detect`, `gitignore-manager`, `setup`, `skills-core`.
+**Tested `lib/` engine (18 modules):** `state` (atomic + single-writer lock + the `completeTrack` completion gate), `provenance` (non-author-evaluator completion invariant), `resume` (crash-safe + idempotency), `loop-guard` (bounded loops incl. board-reject cap), `risk-matrix` + `scrutiny` (deterministic fail-safe), `escalation` (irreversible-always-confirm), `model-resolve` (tier → full model ID + Fable gate), `board-verdict` + `board-gate` (verdict engine + completion-gate decision), `hitl` (sensitive-path + file-backed approval), `firewall-return`, `capability-scan`, `mcp-discovery`, `codex-detect`, `gitignore-manager`, `setup`, `skills-core`.
 
 **Hooks:** SessionStart bootstrap, PreToolUse destructive-git guard, PostToolUse formatting, learning-eval, compaction nudges.
 

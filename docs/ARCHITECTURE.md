@@ -47,8 +47,15 @@ the state, and repeats. Its non-negotiable invariants:
   orchestrator's context. The envelope is validated before it is trusted.
 - **Evaluators.** Dedicated evaluator agents judge the plan (`EVALUATE_PLAN`) and
   the execution result (`EVALUATE_EXEC`) and decide whether to advance, fix, or
-  re-plan. Relevant agents: `soe:loop-planner`, `soe:loop-executor`,
+  re-plan. Relevant agents: `soe:loop-planner`, `soe:soe-workers` (`soe:fast-worker`),
   `soe:loop-execution-evaluator`, `soe:loop-fixer`.
+- **Completion gate (the incident fix).** A track cannot reach `COMPLETE` by
+  self-report. `EVALUATE_EXEC`'s PASS transition routes through
+  `state.js:completeTrack()`, which runs `provenance.gate()` — requiring an
+  independent, **non-author** evaluator PASS whose report **exists on disk** — and,
+  for `full`-tier tracks, a Board decision of `APPROVED`/`APPROVED_WITH_REVIEW`
+  (`board-gate.js`); board rejections are bounded (`incBoardReject`, cap 3). No
+  hand-written `current_step='COMPLETE'` is permitted anywhere.
 - **Board.** For high-consequence proposals, `soe:board-of-directors` runs a
   5-lens expert board (architect, product, security, operations, experience) —
   cheap *collapsed* mode by default, *full* multi-agent board on escalation.
@@ -67,9 +74,10 @@ Pure, tested, mostly fs-free helpers. This is where the guarantees live.
 
 | Module | Responsibility |
 |---|---|
-| `state.js` | The single authoritative execution-state store. **F3 — no torn reads**: write-temp → fsync → atomic `rename(2)`. **F6 — single writer**: `withWriterLock()` takes an `O_CREAT\|O_EXCL` exclusive lock. |
-| `resume.js` | Crash-safe resume + idempotency. `resumePoint()` returns the first not-`completed` task; `nextAction()` skips an `in_progress` task whose recorded `commitSha` is already in the branch (F14/F18). |
-| `loop-guard.js` | Bounded-loop enforcement (F9). Pure counters: `incFix()`/`incPlan()` count-then-compare, halting *at* the cap (fix 5, plan 3). Caller owns persistence. |
+| `state.js` | The single authoritative execution-state store. **F3 — no torn reads**: write-temp → fsync → atomic `rename(2)`. **F6 — single writer**: `withWriterLock()` takes an `O_CREAT\|O_EXCL` exclusive lock. `markTaskComplete()` records a per-task completion (ungated). **`completeTrack()` is the REQUIRED completion gate** — it runs `provenance.gate()` (and, for `full` tier, checks the board decision) BEFORE atomically advancing `loop_state.current_step` to `COMPLETE`; it is the *only* sanctioned path to COMPLETE. |
+| `provenance.js` | The completion-gate invariant (closes the founding self-certification incident). `check()`/`gate()` reject a track that reaches COMPLETE unless a **non-author** evaluator (distinct from the recorded `implementers`) left a **PASS** verdict with a **report handle that exists on disk**; an empty/absent implementer list is also rejected. `build()` normalizes a record (verdicts + handles only — never findings prose). Pure + injectable `fileExists`. |
+| `resume.js` | Crash-safe resume + idempotency. `resumePoint()` returns the first not-`completed` task; `nextAction()` skips an `in_progress` task whose recorded `commitSha` is already in the branch (F14/F18). Track phase is driven by `loop_state.current_step`, so a crash between EXECUTE and COMPLETE resumes into `EVALUATE_EXEC` (re-evaluate, re-gate). |
+| `loop-guard.js` | Bounded-loop enforcement (F9). Pure counters: `incFix()`/`incPlan()`/`incBoardReject()` count-then-compare, halting *at* the cap (fix 5, plan 3, board-reject 3). Caller owns persistence. |
 | `gitignore-manager.js` | Writes a delimited **managed block** into the user project's `.gitignore` (F4): ignore ephemeral run-state, keep durable memory (`docs/plans/`, per-track `*.md` + `state.json`) committable. Idempotent. |
 | `setup.js` | The real scaffolder behind `/setup`. Creates `.soe/config.json`, `.soe/tracks/`, `.soe/setup_state.json`, and applies the managed gitignore block. Idempotent + resumable via `last_step`. |
 | `risk-matrix.js` | The deterministic risk **floor** (F16). `classify(diff)` scans for high-risk markers (auth, authz, payment, crypto, secrets, SQL/migrations, destructive deletes, PII, prod config, force-push) and size; any hit pins `full`. `applyClassifierHint` lets an LLM only *raise* the tier, never lower it. |
@@ -77,6 +85,8 @@ Pure, tested, mostly fs-free helpers. This is where the guarantees live.
 | `escalation.js` | The safety-critical escalation valve + irreversible classifier (F5/F11). Pure. `isIrreversible(action)` flags data-loss migrations, prod deploys, force-push, secret rotation; `shouldEscalate(ctx)` decides whether a human is needed. |
 | `capability-scan.js` | Cross-plugin discovery (§6). Builds a `role → best-provider` map. Tagged (`role:`/`domain:`) providers route precisely; untagged providers route by name/description keyword match; tagged always outranks untagged. |
 | `board-verdict.js` | The Board verdict engine. `parseCollapsed` validates the single-call 5-lens JSON against a strict contract (rejects malformed/bogus verdicts); `aggregateFull` tallies 5 independent persona votes for the escalation path. |
+| `board-gate.js` | Normalizes either board mode into one decision enum (`APPROVED\|APPROVED_WITH_REVIEW\|REJECTED\|ESCALATE`). Collapsed derives the class deterministically from the **lens verdicts** (never trusts the free-form `decision` field); full delegates to `aggregateFull`. Consumed by `completeTrack`'s `full`-tier board gate. |
+| `hitl.js` | Graduated human-in-the-loop primitive. `isSensitivePath()` (deny-list: secrets, `.env`, key material, CI/infra); file-backed `requestApproval()`/`checkApproval()` (`pending\|approve\|deny`). Injectable fs. Drives the sensitive-path + `ESCALATE` gates per interaction mode. |
 | `firewall-return.js` | The context-firewall validator (F12). Validates an untrusted worker's `{ path, summary, confidence }` envelope — path exists, confidence in range — before the orchestrator trusts it. |
 | `codex-detect.js` | Detection for the optional `codex-peer` provider. Pure `isCodexAvailable({ hasBinary, hasPlugin })` — available only when BOTH the `codex` CLI is on PATH AND `openai/codex-plugin-cc` is installed; silently skipped otherwise. |
 | `skills-core.js` | Shared skill-tree helpers used by the scanners/tests. |
@@ -131,8 +141,10 @@ first-class providers:
 
 The **session model the user picked IS the orchestrator** — soe does not detect
 or switch it. It self-selects its topology from its own model identity and
-delegates to subagents pinned to other tiers via `model:` **alias** frontmatter
-(`fable` / `opus` / `sonnet` — never full IDs):
+delegates to subagents pinned to other tiers via `model:` **full-ID** frontmatter
+(`claude-fable-5` / `claude-opus-4-8` / `claude-sonnet-5` — full IDs, not bare
+aliases, so a version is pinned rather than lagging; `lib/model-resolve.js` maps
+tier → full ID and applies the Fable gate):
 
 - `soe:strategist` — **Fable**. Hardest, longest-horizon, highest-stakes,
   irreversible calls and final adversarial synthesis. Skipped when Fable is
