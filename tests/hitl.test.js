@@ -16,6 +16,13 @@ test('isSensitivePath: honors a custom denylist', () => {
   assert.equal(isSensitivePath('src/app.js', ['nope']), false);
 });
 
+test('isSensitivePath now catches auth/payment/migration paths (via risk-matrix markers)', () => {
+  assert.equal(isSensitivePath('app/controllers/auth/sessions_controller.rb'), true);
+  assert.equal(isSensitivePath('app/services/payment/charge.rb'), true);
+  assert.equal(isSensitivePath('db/migrate/20260101_add_users.rb'), true);
+  assert.equal(isSensitivePath('src/app.js'), false);
+});
+
 test('requestApproval writes a pending marker and returns an id; checkApproval reads pending', () => {
   const store = {};
   const writeFile = (p, data) => { store[p] = data; };

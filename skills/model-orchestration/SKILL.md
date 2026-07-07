@@ -14,6 +14,9 @@ description: Session-model-led multi-model tiering. Use in ANY conversation (amb
 | `strategist` | `claude-fable-5` | Hardest, longest-horizon, highest-stakes / irreversible judgment. |
 | `deep-reasoner` | `claude-opus-4-8` | Reasoning-heavy: complex debugging, architecture, algorithm design (fresh context). |
 | `fast-worker` | `claude-sonnet-5` | Mechanical: boilerplate, tests-to-spec, formatting, simple edits. |
+| `explorer` | `claude-haiku-4-5` | Cheapest, read-only: codebase sweeps, capability discovery, "find where X lives", broad file/grep reconnaissance. Never edits. |
+
+**Read-only research, codebase sweeps, and capability discovery go to `soe:explorer` (Haiku) — NEVER to Opus (`deep-reasoner`) or an unpinned `general-purpose` agent, both of which default to the expensive session model.** Reserve `deep-reasoner`/`strategist` for slices that need actual reasoning or judgment, not information-gathering.
 
 ## Per-slice routing — score the work, not the vibe
 

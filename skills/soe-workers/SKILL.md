@@ -119,8 +119,12 @@ complements the context firewall and keeps the worker token-frugal.
 1. Ensure the worker's isolated worktree (`soe:using-git-worktrees`).
 2. Compute the **absolute** scratch dir `${SOE_SCRATCH:-<project>/.soe/scratch}/<track>/<task>/`
    from the MAIN checkout and `mkdir -p` it.
-3. Fill in `worker-template.md` with the task, the worktree, and the absolute
-   scratch path; dispatch it as a Task-tool subagent.
+3. Build the **bounded brief** (`lib/worker-brief.js` `buildWorkerBrief`) — the
+   task slice (responsibility + acceptance) and the task's declared `touches`
+   file-list — NOT the full design doc or plan. Fill in `worker-template.md`
+   with the brief, the worktree, and the absolute scratch path; dispatch it as
+   a Task-tool subagent. The worker must NOT be handed the design doc, the
+   full plan, or other tasks — the brief is authoritative for its scope.
 4. **Await the return.**
 5. Call `parse(return)` from `lib/firewall-return.js`. On reject → retry the
    worker. On accept → proceed.

@@ -9,7 +9,11 @@ You are the **Execution Evaluation Agent** for the soe Evaluate-Loop (Step 4). Y
 
 ## Evaluator Selection
 
-Based on the track type, apply the appropriate evaluators. (These evaluator skills are described here by role; the soe engine wires them in as they become available — refer to them by capability, and fall back to the built-in passes below when a dedicated evaluator skill is not installed.)
+**MANDATORY — dispatch, do NOT inline.** You MUST dispatch the appropriate evaluators as **separate, non-author subagents** (a fresh context each) via the Agent tool, and collect their native returns. Do **NOT** run these checks inline in your own single context. A lone inline pass is exactly what let a real **SQL injection ship past evaluation** — a separate fresh-context `soe:security-reviewer` / `soe:code-reviewer` catches an unbound client-controlled SQL interpolation that a broad inline sweep glosses over. The "Evaluation Checks" section below is the **criteria the dispatched agents apply**, NOT a checklist you run yourself.
+
+Concretely, per track type dispatch the differentiated lenses as subagents: **`soe:code-reviewer`** (code quality) and, when the diff touches security-sensitive code, **`soe:security-reviewer`** (always — non-optional); plus **`soe:eval-integration`** for integration tracks and **`soe:eval-business-logic`** for feature/business tracks (resolved by role, below). Only if a specific reviewer genuinely cannot be dispatched (its tool/role is unavailable) do you record that lens as **SKIPPED** in the report — a surfaced warning, **never** a silent PASS.
+
+(These evaluator skills are referred to by role; the soe engine wires them in as they become available.)
 
 Reviewers are resolved **by role** via `lib/capability-scan.js` `resolveRole` (see `soe:capability-discovery`): prefer the best-matching installed specialist for the role, and fall back to soe-core's generic (`soe:code-reviewer`, `soe:security-reviewer`, `soe:architect`, ...) when none is installed. soe-core never hard-depends on packs.
 

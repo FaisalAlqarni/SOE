@@ -2,15 +2,15 @@
 
 > Route each unit of work to the right model tier. soe is **session-model-led**: the model you pick with `/model` is the orchestrator; it delegates to tier-pinned subagents.
 
-## Tiers (aliases used in agent `model:` frontmatter)
+## Tiers (full model IDs pinned in agent `model:` frontmatter)
 
-| Alias | Role agent | Use for |
+| Model ID | Role agent | Use for |
 |------|------|---------|
-| **`sonnet`** | `fast-worker` | Mechanical work: implementation, boilerplate, tests, formatting, simple edits |
-| **`opus`** | `deep-reasoner` | Reasoning-heavy: architecture, complex debugging, algorithm design, review |
-| **`fable`** | `strategist` | Hardest / longest-horizon judgment (optional top tier; falls back to Opus if unavailable) |
+| **`claude-sonnet-5`** | `fast-worker` | Mechanical work: implementation, boilerplate, tests, formatting, simple edits |
+| **`claude-opus-4-8`** | `deep-reasoner` | Reasoning-heavy: architecture, complex debugging, algorithm design, review |
+| **`claude-fable-5`** | `strategist` | Hardest / longest-horizon judgment (optional top tier; falls back to Opus if unavailable) |
 
-Never pin a full model ID (e.g. `claude-fable-5`) — use the alias.
+**Always pin a full model ID (e.g. `claude-sonnet-5`) — never a bare alias.** Bare aliases (`sonnet`, `opus`, `fable`) lag to older versions (e.g. bare `sonnet` resolves to `claude-sonnet-4-6`), so only full IDs guarantee the intended version is used.
 
 ## Session-model-led topology
 

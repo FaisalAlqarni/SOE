@@ -5,6 +5,7 @@ import {
   classify,
   applyClassifierHint,
   blastRadius,
+  hasRiskyPathMarker,
   TIERS,
 } from '../lib/risk-matrix.js';
 
@@ -318,4 +319,27 @@ test('blastRadius: honors a custom impactThreshold option', () => {
   };
   assert.equal(blastRadius(someFiles, graphify, { impactThreshold: 100 }), null);
   assert.equal(blastRadius(someFiles, graphify, { impactThreshold: 5 }).raiseTo, 'full');
+});
+
+// ==========================================================================
+// hasRiskyPathMarker — path-only predicate (no content) reused by lib/hitl.js
+// ==========================================================================
+
+test('hasRiskyPathMarker: matches auth/authz/payment/secrets/migrations/pii/prod-config/crypto paths', () => {
+  assert.equal(hasRiskyPathMarker('app/controllers/auth/sessions_controller.rb'), true);
+  assert.equal(hasRiskyPathMarker('app/services/payment/charge.rb'), true);
+  assert.equal(hasRiskyPathMarker('db/migrate/20260101_add_users.rb'), true);
+  assert.equal(hasRiskyPathMarker('src/permissions/rbac.js'), true);
+  assert.equal(hasRiskyPathMarker('infra/secrets/keys.json'), true);
+  assert.equal(hasRiskyPathMarker('config/production.yaml'), true);
+  assert.equal(hasRiskyPathMarker('src/crypto/cipher.js'), true);
+});
+
+test('hasRiskyPathMarker: content-only markers (deletion, force-push) never match on path alone', () => {
+  assert.equal(hasRiskyPathMarker('scripts/deploy-force-push.sh'), false);
+});
+
+test('hasRiskyPathMarker: ordinary paths return false', () => {
+  assert.equal(hasRiskyPathMarker('src/app.js'), false);
+  assert.equal(hasRiskyPathMarker('README.md'), false);
 });
