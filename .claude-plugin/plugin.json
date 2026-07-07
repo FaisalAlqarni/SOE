@@ -1,7 +1,7 @@
 {
   "name": "soe",
   "description": "Superpowers discipline pipeline + a simplified, tested multi-agent orchestration engine, with token-efficient cross-plugin capability discovery.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "author": { "name": "Faisal Alqarni" },
   "keywords": ["orchestration","superpowers","evaluate-loop","tdd","workflows","agents"]
 }
