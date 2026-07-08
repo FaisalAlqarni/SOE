@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 
-import { auditCompletions } from '../lib/review-gate.js';
+import { auditCompletions, requireTrackLenses } from '../lib/review-gate.js';
 import { requiredReviews } from '../lib/review-policy.js';
 
 // review-gate.test.js — pure completion auditor over injected fakes (NO fs).
@@ -121,4 +121,57 @@ test('non-completed tasks are ignored entirely', () => {
   const out = auditCompletions(state, fakes);
   assert.equal(out.ok, true);
   assert.deepEqual(out.violations, []);
+});
+
+// requireTrackLenses — the TRACK-level completion gate: a track cannot
+// complete unless the tier's differentiated review lenses actually ran
+// (PASS, non-author, on disk).
+
+test('requireTrackLenses: full tier with only a code PASS review => missing security', () => {
+  const out = requireTrackLenses('full', [
+    { lens: 'code', agent: 'soe:code-reviewer', verdict: 'PASS', report: '/r/code.md' },
+  ], { fileExists: () => true });
+  assert.equal(out.ok, false);
+  assert.deepEqual(out.violations, [{ lens: 'security', kind: 'missing' }]);
+});
+
+test('requireTrackLenses: full tier with code PASS + security FAIL => failed', () => {
+  const out = requireTrackLenses('full', [
+    { lens: 'code', agent: 'soe:code-reviewer', verdict: 'PASS', report: '/r/code.md' },
+    { lens: 'security', agent: 'soe:security-reviewer', verdict: 'FAIL', report: '/r/security.md' },
+  ], { fileExists: () => true });
+  assert.equal(out.ok, false);
+  assert.deepEqual(out.violations, [{ lens: 'security', kind: 'failed' }]);
+});
+
+test('requireTrackLenses: full tier with both PASS + reports on disk => ok', () => {
+  const out = requireTrackLenses('full', [
+    { lens: 'code', agent: 'soe:code-reviewer', verdict: 'PASS', report: '/r/code.md' },
+    { lens: 'security', agent: 'soe:security-reviewer', verdict: 'PASS', report: '/r/security.md' },
+  ], { fileExists: () => true });
+  assert.equal(out.ok, true);
+  assert.deepEqual(out.violations, []);
+});
+
+test('requireTrackLenses: trivial tier with no reviews => ok (required set is empty)', () => {
+  const out = requireTrackLenses('trivial', [], { fileExists: () => true });
+  assert.equal(out.ok, true);
+  assert.deepEqual(out.violations, []);
+});
+
+test('requireTrackLenses: security review whose agent === implementer => self-review', () => {
+  const out = requireTrackLenses('full', [
+    { lens: 'code', agent: 'soe:code-reviewer', verdict: 'PASS', report: '/r/code.md' },
+    { lens: 'security', agent: 'soe:fast-worker', verdict: 'PASS', report: '/r/security.md' },
+  ], { fileExists: () => true, implementers: ['soe:fast-worker'] });
+  assert.equal(out.ok, false);
+  assert.deepEqual(out.violations, [{ lens: 'security', kind: 'self-review' }]);
+});
+
+test('requireTrackLenses: dangling report path (fileExists => false) => dangling', () => {
+  const out = requireTrackLenses('standard', [
+    { lens: 'code', agent: 'soe:code-reviewer', verdict: 'PASS', report: '/r/code.md' },
+  ], { fileExists: () => false });
+  assert.equal(out.ok, false);
+  assert.deepEqual(out.violations, [{ lens: 'code', kind: 'dangling' }]);
 });

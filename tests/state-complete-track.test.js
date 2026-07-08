@@ -99,3 +99,58 @@ test('completeTrack: non-full board field is ignored (APPROVED not required for 
     assert.equal(readState(dir).loop_state.current_step, 'COMPLETE');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// requireTrackLenses wiring: a track cannot complete unless its tier's
+// differentiated review lenses (code/security/…) actually ran.
+
+test('completeTrack: full-tier provenance missing the security lens review THROWS, state untouched', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'soe-ct-'));
+  try {
+    await advanceStep(dir, 'EVALUATE_EXEC', 'DONE');
+    const evalReport = join(dir, 'evaluation-report.md');
+    writeFileSync(evalReport, 'PASS');
+    const codeReport = join(dir, 'code-review.md');
+    writeFileSync(codeReport, 'PASS');
+    const rec = {
+      ...prov(evalReport),
+      tier: 'full',
+      reviews: [{ lens: 'code', agent: 'soe:code-reviewer', verdict: 'PASS', report: codeReport }],
+    };
+    await assert.rejects(() => completeTrack(dir, rec), /required review lenses/);
+    assert.equal(readState(dir).loop_state.current_step, 'EVALUATE_EXEC'); // untouched
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('completeTrack: full-tier provenance with both code + security PASS reviews (on disk) completes', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'soe-ct-'));
+  try {
+    await advanceStep(dir, 'EVALUATE_EXEC', 'DONE');
+    const evalReport = join(dir, 'evaluation-report.md');
+    writeFileSync(evalReport, 'PASS');
+    const codeReport = join(dir, 'code-review.md');
+    writeFileSync(codeReport, 'PASS');
+    const securityReport = join(dir, 'security-review.md');
+    writeFileSync(securityReport, 'PASS');
+    const rec = {
+      ...prov(evalReport),
+      tier: 'full',
+      reviews: [
+        { lens: 'code', agent: 'soe:code-reviewer', verdict: 'PASS', report: codeReport },
+        { lens: 'security', agent: 'soe:security-reviewer', verdict: 'PASS', report: securityReport },
+      ],
+    };
+    await completeTrack(dir, rec);
+    assert.equal(readState(dir).loop_state.current_step, 'COMPLETE');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('completeTrack: provenance with NO tier completes (back-compat, lens gate skipped)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'soe-ct-'));
+  try {
+    await advanceStep(dir, 'EVALUATE_EXEC', 'DONE');
+    const report = join(dir, 'evaluation-report.md');
+    writeFileSync(report, 'PASS');
+    await completeTrack(dir, prov(report)); // no tier field at all
+    assert.equal(readState(dir).loop_state.current_step, 'COMPLETE');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

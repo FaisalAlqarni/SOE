@@ -161,18 +161,6 @@
         "description": "TypeScript check after editing .ts/.tsx files"
       }
     ],
-    "SubagentStop": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-node.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/_t0-subagentstop-spike.js\""
-          }
-        ],
-        "description": "T0 SPIKE (TEMPORARY — remove after the test): verify SubagentStop block-to-continue"
-      }
-    ],
     "SessionEnd": [
       {
         "matcher": "*",

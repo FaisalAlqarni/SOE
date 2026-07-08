@@ -332,18 +332,26 @@ It writes an evaluation report and returns a PASS/FAIL verdict.
 
 - **PASS** → build the track provenance record and call the **required** completion gate. NEVER advance to COMPLETE by hand:
   ```
+  tier = risk-matrix.classify(diff)            // 'trivial' | 'standard' | 'full' — determines REQUIRED lenses
   provenance = {
+    tier,                                        // REQUIRED — the gate reads this to know which lenses are mandatory
     implementers: [<the worker agent(s) that implemented this track, e.g. 'soe:fast-worker'>],
     evaluator: {
       agent: 'soe:loop-execution-evaluator',
       verdict: 'PASS',
-      report: '<absolute path to>.soe/tracks/{id}/evaluation-report.md',   // record an ABSOLUTE path (resolve from the project root) so the gate's on-disk check is cwd-independent
+      report: '<absolute path to>.soe/tracks/{id}/evaluation-report.md',   // ABSOLUTE path (cwd-independent on-disk check)
     },
+    reviews: [                                   // REQUIRED — the differentiated lenses the evaluator DISPATCHED (per its tier); each is a SEPARATE non-author subagent that wrote its own report
+      { lens: 'code',     agent: 'soe:code-reviewer',     verdict: 'PASS', report: '<abs>.soe/tracks/{id}/reviews/code.md' },
+      { lens: 'security', agent: 'soe:security-reviewer', verdict: 'PASS', report: '<abs>.soe/tracks/{id}/reviews/security.md' },  // for standard/full when security-sensitive
+      // + 'database'/'logging' when the diff touches SQL/logging
+    ],
+    touchesSql?, touchesLogging?,                // so the gate knows to require database/logging lenses
     tests?: { ran, summary },
   }
   completeTrack(stateDir, provenance)   // lib/state.js — runs the gate, THEN advances loop_state to COMPLETE
   ```
-  `completeTrack` **throws** if the report is missing/dangling, the verdict is not PASS, or the evaluator also implemented (self-review). A throw here is a **hard integrity halt** — surface it loudly and stop; do NOT fall back to `advanceStep` or a manual hand-write of the `current_step` field to the COMPLETE state. `completeTrack` is the ONLY sanctioned way to reach COMPLETE.
+  `completeTrack` **throws** if the evaluator report is missing/dangling, the verdict is not PASS, the evaluator self-reviewed, **OR the tier's required review lenses (`code`/`security`/…) are missing, FAILED, or their reports are not on disk** (`requireTrackLenses`). This is the mechanical backstop for the differentiated-lens discipline: an evaluator that *inlined* instead of dispatching the lenses produces no lens reports → the gate throws → the track **cannot complete** until the real lenses run. A throw here is a **hard integrity halt** — surface it loudly and stop; do NOT fall back to `advanceStep` or a manual hand-write of `current_step`. `completeTrack` is the ONLY sanctioned way to reach COMPLETE.
 
   **Full-tier tracks — Board gate (before completeTrack).** When the track tier is `full` (high-stakes), an evaluator PASS is necessary but not sufficient. After the evaluator PASSes, run the Board and fold its decision into the gate:
   1. Dispatch the Board (`soe:board-meeting` for the full escalation board, else the collapsed board) and compute the unified decision with `boardDecision(result, mode)` from `lib/board-gate.js` → one of `APPROVED | APPROVED_WITH_REVIEW | REJECTED | ESCALATE`.
